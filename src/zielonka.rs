@@ -110,6 +110,90 @@ mod tests {
         assert!(set0.is_empty());
         assert_eq!(set1, vec![0, 1].into_iter().collect());
     }
+
+    #[test]
+    fn zielonka_single_even() {
+        let mut builder = ParityGameBuilder::new();
+        builder.add_edge(0, 0)
+            .set_owner(0, 0)
+            .set_priority(0, 2);
+
+        let game = builder.build();
+        let (p0, p1) = run_zielonka(&game).unwrap();
+        let set0: HashSet<usize> = p0.into_iter().collect();
+        let set1: HashSet<usize> = p1.into_iter().collect();
+        assert_eq!(set0, vec![0].into_iter().collect());
+        assert!(set1.is_empty());
+    }
+
+    #[test]
+    fn zielonka_single_odd() {
+        let mut builder = ParityGameBuilder::new();
+        builder.add_edge(0, 0)
+            .set_owner(0, 0)
+            .set_priority(0, 1);
+
+        let game = builder.build();
+        let (p0, p1) = run_zielonka(&game).unwrap();
+        let set0: HashSet<usize> = p0.into_iter().collect();
+        let set1: HashSet<usize> = p1.into_iter().collect();
+        assert!(set0.is_empty());
+        assert_eq!(set1, vec![0].into_iter().collect());
+    }
+
+    #[test]
+    fn zielonka_partition_and_disjointness() {
+        let mut builder = ParityGameBuilder::new();
+        builder.add_edge(0, 1)
+            .add_edge(1, 2)
+            .add_edge(2, 0)
+            .set_owner(0, 0)
+            .set_owner(1, 1)
+            .set_owner(2, 0)
+            .set_priority(0, 3)
+            .set_priority(1, 2)
+            .set_priority(2, 1);
+
+        let game = builder.build();
+        let (p0, p1) = run_zielonka(&game).unwrap();
+        let set0: HashSet<usize> = p0.into_iter().collect();
+        let set1: HashSet<usize> = p1.into_iter().collect();
+
+        let u: HashSet<usize> = set0.union(&set1).cloned().collect();
+        assert_eq!(u, vec![0, 1, 2].into_iter().collect());
+
+        let inter: HashSet<usize> = set0.intersection(&set1).cloned().collect();
+        assert!(inter.is_empty());
+    }
+
+    #[test]
+    fn zielonka_deterministic_runs_equal() {
+        let mut builder = ParityGameBuilder::new();
+        builder.add_edge(0, 1)
+            .add_edge(1, 2)
+            .add_edge(2, 3)
+            .add_edge(3, 0)
+            .set_owner(0, 0)
+            .set_owner(1, 1)
+            .set_owner(2, 0)
+            .set_owner(3, 1)
+            .set_priority(0, 4)
+            .set_priority(1, 1)
+            .set_priority(2, 2)
+            .set_priority(3, 3);
+
+        let game = builder.build();
+        let (p0a, p1a) = run_zielonka(&game).unwrap();
+        let (p0b, p1b) = run_zielonka(&game).unwrap();
+
+        let set0a: HashSet<usize> = p0a.into_iter().collect();
+        let set1a: HashSet<usize> = p1a.into_iter().collect();
+        let set0b: HashSet<usize> = p0b.into_iter().collect();
+        let set1b: HashSet<usize> = p1b.into_iter().collect();
+
+        assert_eq!(set0a, set0b);
+        assert_eq!(set1a, set1b);
+    }
 }
     
 

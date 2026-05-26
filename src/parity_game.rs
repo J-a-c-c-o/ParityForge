@@ -44,6 +44,16 @@ impl ParityGame {
         &self.edges[node]
     }
 
+    pub fn get_predecessors(&self, node: usize) -> Vec<usize> {
+        let mut predecessors = Vec::new();
+        for (from, edges) in self.edges.iter().enumerate() {
+            if edges.contains(&node) {
+                predecessors.push(from);
+            }
+        }
+        predecessors
+    }
+
     pub fn get_priority(&self, node: usize) -> usize {
         self.priorities[node]
     }
