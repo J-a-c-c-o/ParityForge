@@ -1,0 +1,1 @@
+./oink/build/test_solvers --size 1000 -e "./target/release/ParityTool solve %I %O"

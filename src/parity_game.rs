@@ -2,7 +2,8 @@ use std::cmp::max;
 
 pub struct ParityGame {
     nodes: usize,
-    edges: Vec<Vec<usize>>,
+    successors: Vec<Vec<usize>>,
+    predecessors: Vec<Vec<usize>>,
     priorities: Vec<usize>,
     owners: Vec<usize>,
     labels: Vec<Option<String>>,
@@ -13,7 +14,8 @@ impl ParityGame {
     pub fn new(nodes: usize) -> Self {
         ParityGame {
             nodes,
-            edges: vec![Vec::new(); nodes],
+            successors: vec![Vec::new(); nodes],
+            predecessors: vec![Vec::new(); nodes],
             priorities: vec![0; nodes],
             owners: vec![0; nodes],
             labels: vec![None; nodes],
@@ -21,7 +23,8 @@ impl ParityGame {
     }
 
     fn add_edge(&mut self, from: usize, to: usize) {
-        self.edges[from].push(to);
+        self.successors[from].push(to);
+        self.predecessors[to].push(from);
     }
 
     fn set_priority(&mut self, node: usize, priority: usize) {
@@ -37,21 +40,15 @@ impl ParityGame {
     }
 
     pub fn get_edges(&self, node: usize) -> &[usize] {
-        &self.edges[node]
+        &self.successors[node]
     }
 
     pub fn get_successors(&self, node: usize) -> &[usize] {
-        &self.edges[node]
+        &self.successors[node]
     }
 
-    pub fn get_predecessors(&self, node: usize) -> Vec<usize> {
-        let mut predecessors = Vec::new();
-        for (from, edges) in self.edges.iter().enumerate() {
-            if edges.contains(&node) {
-                predecessors.push(from);
-            }
-        }
-        predecessors
+    pub fn get_predecessors(&self, node: usize) -> &[usize] {
+        &self.predecessors[node]
     }
 
     pub fn get_priority(&self, node: usize) -> usize {
@@ -78,6 +75,10 @@ impl ParityGame {
         (0..self.nodes).collect()
     }
 
+    pub fn get_max_priority(&self) -> usize {
+        *self.priorities.iter().max().unwrap_or(&0)
+    }
+
     pub fn num_nodes(&self) -> usize {
         self.nodes
     }
@@ -87,10 +88,11 @@ impl Clone for ParityGame {
     fn clone(&self) -> Self {
         ParityGame {
             nodes: self.nodes,
-            edges: self.edges.clone(),
+            successors: self.successors.clone(),
             priorities: self.priorities.clone(),
             owners: self.owners.clone(),
             labels: self.labels.clone(),
+            predecessors: self.predecessors.clone(),
         }
     }
 }

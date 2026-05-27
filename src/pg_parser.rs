@@ -10,6 +10,8 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
             continue;
         }
 
+        let line = line.replace(";", "");
+
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 4 {
             return Err(format!("Invalid line format: '{}'", line));
@@ -39,3 +41,32 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
     Ok(builder.build())
 }
 
+
+
+pub fn unparse_sol(game: &ParityGame, strategy0: &[(usize, usize)], strategy1: &[(usize, usize)], winning_region0: &[usize], winning_region1: &[usize]) -> String {
+    let mut output = String::new();
+
+    output.push_str(&format!("paritysol {}\n", game.get_max_priority()));
+    // name of the format: node_id owner strategy_target
+    for node in game.get_nodes() {
+        // determine owner from winning regions
+        let owner = if winning_region0.contains(&node) {
+            0
+        } else if winning_region1.contains(&node) {
+            1
+        } else {
+            game.get_owner(node)
+        };
+        let strategy = if owner == 0 {
+            strategy0.iter().find(|&&(n, _)| n == node).map(|&(_, target)| target)
+        } else {
+            strategy1.iter().find(|&&(n, _)| n == node).map(|&(_, target)| target)
+        };
+        if let Some(target) = strategy {
+            output.push_str(&format!("{} {} {};\n", node, owner, target));
+        } else {
+            output.push_str(&format!("{} {};\n", node, owner));
+        }
+    }
+    output
+}

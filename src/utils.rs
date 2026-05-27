@@ -7,10 +7,11 @@ pub(crate) fn attract(
     excluded: &HashSet<usize>, 
     nodes_to_attract: &[usize], 
     player: usize
-) -> Vec<usize> {
+) -> (Vec<usize>, Vec<(usize, usize)>) {
     let mut attractor = HashSet::new();
     let mut queue = VecDeque::new();
-    
+    let mut strategy = Vec::new();
+
     let mut out_degree = vec![0; game.num_nodes()];
 
     for node in game.get_nodes() {
@@ -32,12 +33,13 @@ pub(crate) fn attract(
     }
 
     while let Some(current) = queue.pop_front() {
-        for predecessor in game.get_predecessors(current) {
+        for &predecessor in game.get_predecessors(current) {
             if excluded.contains(&predecessor) || attractor.contains(&predecessor) {
                 continue;
             }
 
             if game.get_owner(predecessor) == player {
+                strategy.push((predecessor, current));
                 attractor.insert(predecessor);
                 queue.push_back(predecessor);
             } else {
@@ -52,5 +54,5 @@ pub(crate) fn attract(
         }
     }
 
-    attractor.into_iter().collect()
+    (attractor.into_iter().collect(), strategy)
 }

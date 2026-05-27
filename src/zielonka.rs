@@ -3,199 +3,120 @@ use crate::utils::attract;
 
 use std::collections::HashSet;
 
-pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>), String> {
-    Ok(solve(game, HashSet::new()))
+pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>), String> {
+    let (w0, w1, strat0, strat1) = solve(game, HashSet::new());
+    Ok((w0, w1, strat0, strat1))
 }
 
-fn solve(game: &ParityGame, excluded: HashSet<usize>) -> (Vec<usize>, Vec<usize>) {
-    let max_priority = game.get_nodes().into_iter()
-        .filter(|n| !excluded.contains(n))
-        .map(|n| game.get_priority(n))
-        .max()
-        .unwrap_or(0);
+fn complete_strategies(
+    game: &ParityGame,
+    winning_region: &[usize],
+    player: usize,
+    strategies: &mut Vec<(usize, usize)>,
+) {
+    let region: HashSet<usize> = winning_region.iter().copied().collect();
+    let mut known: HashSet<usize> = strategies.iter().map(|&(node, _)| node).collect();
 
-    if max_priority == 0 {
-        return (game.get_nodes().into_iter().filter(|n| !excluded.contains(n)).collect(), vec![]);
+    for &node in winning_region {
+        if game.get_owner(node) != player || known.contains(&node) {
+            continue;
+        }
+
+        let target = game
+            .get_successors(node)
+            .iter()
+            .copied()
+            .find(|successor| region.contains(successor))
+            .expect("winning vertex has no successor in winning region");
+
+        strategies.push((node, target));
+        known.insert(node);
+    }
+}
+
+fn solve(game: &ParityGame, excluded: HashSet<usize>) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>) {
+    if game.num_nodes() == excluded.len() {
+        return (vec![], vec![], vec![], vec![]);
     }
 
-    let nodes_with_max_priority = game.get_nodes_with_priority(max_priority);
+    let max_priority = game
+        .get_nodes()
+        .into_iter()
+        .filter(|v| !excluded.contains(v))
+        .map(|v| game.get_priority(v))
+        .max()
+        .unwrap();
+
     let player = max_priority % 2;
 
-    let attractor = attract(game, &excluded, &nodes_with_max_priority, player);
+    let max_nodes: Vec<usize> = game
+        .get_nodes_with_priority(max_priority)
+        .into_iter()
+        .filter(|v| !excluded.contains(v))
+        .collect();
 
-    let mut new_excluded = excluded.clone();
-    for node in &attractor {
-        new_excluded.insert(*node);
-    }
+    let (a, strat_a) = attract(game, &excluded, &max_nodes, player);
 
-    let (winning_set_player, winning_set_opponent) = solve(game, new_excluded);
+    let mut excluded_a = excluded.clone();
+    excluded_a.extend(a.iter().copied());
 
-    if player == 0 && winning_set_opponent.is_empty() {
-        return (game.get_nodes().into_iter().filter(|n| !excluded.contains(n)).collect(), vec![]);
-    } else if player == 1 && winning_set_player.is_empty() {
-        return (vec![], game.get_nodes().into_iter().filter(|n| !excluded.contains(n)).collect());
-    }
+    let (mut w0, mut w1, mut strat_w0, mut strat_w1) = solve(game, excluded_a);
 
-    let mut attractor = vec![];
+    let opponent_region = if player == 0 { &w1 } else { &w0 };
+    let opponent_strategy = if player == 0 { &strat_w1 } else { &strat_w0 };
 
-    if player == 0 {
-        attractor = attract(game, &excluded, &winning_set_opponent, 1 - player);
-    } else {
-        attractor = attract(game, &excluded, &winning_set_player, 1 - player);
-    }
+    let (b, mut strat_b) = attract(game, &excluded, opponent_region, 1 - player);
 
-    let mut new_excluded = excluded.clone();
-    for node in &attractor {
-        new_excluded.insert(*node);
-    }
-
-    let (mut winning_set_player, mut winning_set_opponent) = solve(game, new_excluded);
-
-    if player == 0 {
-        for node in attractor {
-            winning_set_opponent.push(node);
-        }
-    } else {
-        for node in attractor {
-            winning_set_player.push(node);
-        }
-    }
-
-    return (winning_set_player, winning_set_opponent);
-
-}
-
+    strat_b.extend(opponent_strategy.iter().copied());
     
 
+    let b_set: HashSet<_> = b.iter().copied().collect();
+    let opp_set: HashSet<_> = opponent_region.iter().copied().collect();
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parity_game::ParityGameBuilder;
-    use std::collections::HashSet;
+    if b_set == opp_set {
+        if player == 0 {
+            w0.extend(a);
+            strat_w0.extend(strat_a.iter().copied());
+            strat_w0.extend(pick(game, &max_nodes, &w0));
+        } else {
+            w1.extend(a);
+            strat_w1.extend(strat_a.iter().copied());
+            strat_w1.extend(pick(game, &max_nodes, &w1));
+        }
 
 
-    #[test]
-    fn zielonka_self_loops() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 0)
-            .add_edge(1, 1)
-            .set_owner(0, 0)
-            .set_owner(1, 0)
-            .set_priority(0, 2)
-            .set_priority(1, 1);
+        (w0, w1, strat_w0, strat_w1)
+    } else {
+        let mut excluded_b = excluded.clone();
+        excluded_b.extend(b.iter().copied());
 
-        let game = builder.build();
-        let (p0, p1) = run_zielonka(&game).unwrap();
-        let set0: HashSet<usize> = p0.into_iter().collect();
-        let set1: HashSet<usize> = p1.into_iter().collect();
-        assert_eq!(set0, vec![0].into_iter().collect());
-        assert_eq!(set1, vec![1].into_iter().collect());
-    }
+        let (mut w0, mut w1, mut strat_w0, mut strat_w1) = solve(game, excluded_b);
 
-    #[test]
-    fn zielonka_cycle_both_odd() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 1)
-            .add_edge(1, 0)
-            .set_owner(0, 0)
-            .set_owner(1, 0)
-            .set_priority(0, 1)
-            .set_priority(1, 1);
+        if player == 0 {
+            w1.extend(b);
+            strat_w1.extend(strat_b.iter().copied());
+        } else {
+            w0.extend(b);
+            strat_w0.extend(strat_b.iter().copied());
+        }
 
-        let game = builder.build();
-        let (p0, p1) = run_zielonka(&game).unwrap();
-        let set0: HashSet<usize> = p0.into_iter().collect();
-        let set1: HashSet<usize> = p1.into_iter().collect();
-        assert!(set0.is_empty());
-        assert_eq!(set1, vec![0, 1].into_iter().collect());
-    }
+        complete_strategies(game, &w0, 0, &mut strat_w0);
+        complete_strategies(game, &w1, 1, &mut strat_w1);
 
-    #[test]
-    fn zielonka_single_even() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 0)
-            .set_owner(0, 0)
-            .set_priority(0, 2);
-
-        let game = builder.build();
-        let (p0, p1) = run_zielonka(&game).unwrap();
-        let set0: HashSet<usize> = p0.into_iter().collect();
-        let set1: HashSet<usize> = p1.into_iter().collect();
-        assert_eq!(set0, vec![0].into_iter().collect());
-        assert!(set1.is_empty());
-    }
-
-    #[test]
-    fn zielonka_single_odd() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 0)
-            .set_owner(0, 0)
-            .set_priority(0, 1);
-
-        let game = builder.build();
-        let (p0, p1) = run_zielonka(&game).unwrap();
-        let set0: HashSet<usize> = p0.into_iter().collect();
-        let set1: HashSet<usize> = p1.into_iter().collect();
-        assert!(set0.is_empty());
-        assert_eq!(set1, vec![0].into_iter().collect());
-    }
-
-    #[test]
-    fn zielonka_partition_and_disjointness() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 1)
-            .add_edge(1, 2)
-            .add_edge(2, 0)
-            .set_owner(0, 0)
-            .set_owner(1, 1)
-            .set_owner(2, 0)
-            .set_priority(0, 3)
-            .set_priority(1, 2)
-            .set_priority(2, 1);
-
-        let game = builder.build();
-        let (p0, p1) = run_zielonka(&game).unwrap();
-        let set0: HashSet<usize> = p0.into_iter().collect();
-        let set1: HashSet<usize> = p1.into_iter().collect();
-
-        let u: HashSet<usize> = set0.union(&set1).cloned().collect();
-        assert_eq!(u, vec![0, 1, 2].into_iter().collect());
-
-        let inter: HashSet<usize> = set0.intersection(&set1).cloned().collect();
-        assert!(inter.is_empty());
-    }
-
-    #[test]
-    fn zielonka_deterministic_runs_equal() {
-        let mut builder = ParityGameBuilder::new();
-        builder.add_edge(0, 1)
-            .add_edge(1, 2)
-            .add_edge(2, 3)
-            .add_edge(3, 0)
-            .set_owner(0, 0)
-            .set_owner(1, 1)
-            .set_owner(2, 0)
-            .set_owner(3, 1)
-            .set_priority(0, 4)
-            .set_priority(1, 1)
-            .set_priority(2, 2)
-            .set_priority(3, 3);
-
-        let game = builder.build();
-        let (p0a, p1a) = run_zielonka(&game).unwrap();
-        let (p0b, p1b) = run_zielonka(&game).unwrap();
-
-        let set0a: HashSet<usize> = p0a.into_iter().collect();
-        let set1a: HashSet<usize> = p1a.into_iter().collect();
-        let set0b: HashSet<usize> = p0b.into_iter().collect();
-        let set1b: HashSet<usize> = p1b.into_iter().collect();
-
-        assert_eq!(set0a, set0b);
-        assert_eq!(set1a, set1b);
+        (w0, w1, strat_w0, strat_w1)
     }
 }
-    
 
 
-
+fn pick(game: &ParityGame, max_nodes: &[usize], winning_region: &[usize]) -> Vec<(usize, usize)> {
+    let mut strategies = Vec::new();
+    for &node in max_nodes {
+        for &successor in game.get_successors(node) {
+            if winning_region.contains(&successor) {
+                strategies.push((node, successor));
+                break;
+            }
+        }
+    }
+    strategies
+}
