@@ -5,7 +5,7 @@ mod pg_parser;
 mod zielonka;
 
 use clap::{Parser, Subcommand};
-use crate::pg_parser::parse_pg;
+use crate::pg_parser::{parse_pg, strat_to_sol};
 // use crate::tangle_learning::run_tl;
 use crate::zielonka::run_zielonka;
 
@@ -79,7 +79,7 @@ fn zielonka(file: &str, output_file: &str) {
     }
 
     if let Ok((winning_region0, winning_region1, strategy_0, strategy_1)) = result {
-        let output = pg_parser::unparse_sol(&game.unwrap(), &strategy_0, &strategy_1, &winning_region0, &winning_region1);
+        let output = strat_to_sol(&game.unwrap(), &strategy_0, &strategy_1, &winning_region0, &winning_region1);
 
         std::fs::write(&output_file, output).unwrap_or_else(|e| {
             eprintln!("Error writing output file '{}': {}", output_file, e);

@@ -43,7 +43,7 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
 
 
 
-pub fn unparse_sol(game: &ParityGame, strategy0: &[(usize, usize)], strategy1: &[(usize, usize)], winning_region0: &[usize], winning_region1: &[usize]) -> String {
+pub fn strat_to_sol(game: &ParityGame, strategy0: &[(usize, usize)], strategy1: &[(usize, usize)], winning_region0: &[usize], winning_region1: &[usize]) -> String {
     let mut output = String::new();
 
     output.push_str(&format!("paritysol {}\n", game.get_max_priority()));
