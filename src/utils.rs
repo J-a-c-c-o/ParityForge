@@ -4,7 +4,7 @@ use std::collections::{HashSet, VecDeque};
 
 pub(crate) fn attract(
     game: &ParityGame, 
-    excluded: &HashSet<usize>, 
+    excluded: &[bool], 
     nodes_to_attract: &[usize], 
     player: usize
 ) -> (Vec<usize>, Vec<(usize, usize)>) {
@@ -15,17 +15,17 @@ pub(crate) fn attract(
     let mut out_degree = vec![0; game.num_nodes()];
 
     for node in game.get_nodes() {
-        if !excluded.contains(&node) && game.get_owner(node) == 1 - player {
+        if !excluded[node] && game.get_owner(node) == 1 - player {
             let valid_edges_count = game.get_edges(node)
                 .iter()
-                .filter(|target| !excluded.contains(target))
+                .filter(|target| !excluded[**target])
                 .count();
             out_degree[node] = valid_edges_count;
         }
     }
 
     for &node in nodes_to_attract {
-        if !excluded.contains(&node) {
+        if !excluded[node] {
             if attractor.insert(node) {
                 queue.push_back(node);
             }
@@ -34,7 +34,7 @@ pub(crate) fn attract(
 
     while let Some(current) = queue.pop_front() {
         for &predecessor in game.get_predecessors(current) {
-            if excluded.contains(&predecessor) || attractor.contains(&predecessor) {
+            if excluded[predecessor] || attractor.contains(&predecessor) {
                 continue;
             }
 
