@@ -8,31 +8,6 @@ pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<(u
     Ok((w0, w1, strat0, strat1))
 }
 
-fn complete_strategies(
-    game: &ParityGame,
-    winning_region: &[usize],
-    player: usize,
-    strategies: &mut Vec<(usize, usize)>,
-) {
-    let region: HashSet<usize> = winning_region.iter().copied().collect();
-    let mut known: HashSet<usize> = strategies.iter().map(|&(node, _)| node).collect();
-
-    for &node in winning_region {
-        if game.get_owner(node) != player || known.contains(&node) {
-            continue;
-        }
-
-        let target = game
-            .get_successors(node)
-            .iter()
-            .copied()
-            .find(|successor| region.contains(successor))
-            .expect("winning vertex has no successor in winning region");
-
-        strategies.push((node, target));
-        known.insert(node);
-    }
-}
 
 fn solve(game: &ParityGame, excluded: HashSet<usize>) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>) {
     if game.num_nodes() == excluded.len() {
@@ -99,9 +74,6 @@ fn solve(game: &ParityGame, excluded: HashSet<usize>) -> (Vec<usize>, Vec<usize>
             w0.extend(b);
             strat_w0.extend(strat_b.iter().copied());
         }
-
-        complete_strategies(game, &w0, 0, &mut strat_w0);
-        complete_strategies(game, &w1, 1, &mut strat_w1);
 
         (w0, w1, strat_w0, strat_w1)
     }
