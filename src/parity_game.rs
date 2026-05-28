@@ -75,6 +75,13 @@ impl ParityGame {
         (0..self.nodes).collect()
     }
 
+    pub fn get_nodes_with_prio_eval<F>(&self, eval: F) -> Vec<usize>
+    where
+        F: Fn(usize) -> bool,
+    {
+        self.priorities.iter().enumerate().filter_map(|(node, &p)| if eval(p) { Some(node) } else { None }).collect()
+    }
+
     pub fn get_max_priority(&self) -> usize {
         *self.priorities.iter().max().unwrap_or(&0)
     }
