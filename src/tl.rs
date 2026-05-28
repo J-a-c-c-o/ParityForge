@@ -1,46 +1,88 @@
 use crate::parity_game::ParityGame;
-use crate::utils::attract;
-use crate::zielonka::zielonka_solve;
+
+use std::collections::{HashSet, VecDeque};
 
 pub fn run_tl(
     game: &ParityGame,
 ) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
-    Ok(solve(game))
+    Ok(tangle_learning(game))
 }
 
-fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+fn tangle_learning(
+    game: &ParityGame,
+) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
     let nodes = game.num_nodes();
-    let mut excluded = vec![false; nodes];
+    let mut in_game = vec![true; nodes];
     let mut winner: Vec<Option<usize>> = vec![None; nodes];
-    let mut strat0: Vec<Option<usize>> = vec![None; nodes];
-    let mut strat1: Vec<Option<usize>> = vec![None; nodes];
+    let mut strat0 = vec![None; nodes];
+    let mut strat1 = vec![None; nodes];
+    let mut tangles: Vec<Tangle> = Vec::new();
 
-    while excluded.iter().any(|&x| !x) {
-        let mut tangles = find_closed_tangles(game, &excluded);
+    while in_game.iter().any(|&x| x) {
+        let mut new_tangles = search(game, &tangles, &in_game);
 
-        if tangles.is_empty() {
-            let (rw0, rw1, rs0, rs1) = zielonka_solve(game, &excluded);
-            mark_winner(&mut winner, &mut excluded, &rw0, 0);
-            mark_winner(&mut winner, &mut excluded, &rw1, 1);
-            apply_strategies(game, &mut strat0, &rs0, 0);
-            apply_strategies(game, &mut strat1, &rs1, 1);
+        if new_tangles.is_empty() {
+            let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
+            mark_winner(&mut winner, &mut in_game, &rw0, 0);
+            mark_winner(&mut winner, &mut in_game, &rw1, 1);
+            merge_strategy(&mut strat0, &rs0, 0, game);
+            merge_strategy(&mut strat1, &rs1, 1, game);
             break;
         }
 
-        tangles.sort_by(|a, b| b.max_priority.cmp(&a.max_priority));
-        let tangle = tangles.remove(0);
-
-        let (attr, strat_attr) = attract(game, &excluded, &tangle.nodes, tangle.player);
-
-        if tangle.player == 0 {
-            apply_strategies(game, &mut strat0, &tangle.strategy, 0);
-            apply_strategies(game, &mut strat0, &strat_attr, 0);
-        } else {
-            apply_strategies(game, &mut strat1, &tangle.strategy, 1);
-            apply_strategies(game, &mut strat1, &strat_attr, 1);
+        let mut dominions = Vec::new();
+        for t in new_tangles {
+            if t.escapes.is_empty() {
+                dominions.push(t);
+            } else {
+                tangles.push(t);
+            }
         }
 
-        mark_winner(&mut winner, &mut excluded, &attr, tangle.player);
+        if dominions.is_empty() {
+            let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
+            mark_winner(&mut winner, &mut in_game, &rw0, 0);
+            mark_winner(&mut winner, &mut in_game, &rw1, 1);
+            merge_strategy(&mut strat0, &rs0, 0, game);
+            merge_strategy(&mut strat1, &rs1, 1, game);
+            break;
+        }
+
+        let escape_map0 = build_escape_map(nodes, &tangles, 0);
+        let escape_map1 = build_escape_map(nodes, &tangles, 1);
+
+        for player in [0usize, 1usize] {
+            let dominion_nodes = collect_dominion_nodes(&dominions, player, nodes);
+            if dominion_nodes.is_empty() {
+                continue;
+            }
+
+            let mut sigma = vec![None; nodes];
+            for t in dominions.iter().filter(|t| t.player == player) {
+                merge_strategy(&mut sigma, &t.strategy, player, game);
+            }
+
+            let escape_map = if player == 0 { &escape_map0 } else { &escape_map1 };
+            let (z_plus, sigma_plus) = tangle_attract(
+                game,
+                &tangles,
+                escape_map,
+                &in_game,
+                &dominion_nodes,
+                player,
+                &sigma,
+            );
+
+            if player == 0 {
+                merge_strategy(&mut strat0, &sigma_plus, 0, game);
+            } else {
+                merge_strategy(&mut strat1, &sigma_plus, 1, game);
+            }
+
+            mark_winner(&mut winner, &mut in_game, &z_plus, player);
+        }
+
+        tangles.retain(|t| t.nodes.iter().all(|&v| in_game[v]));
     }
 
     let mut w0 = Vec::new();
@@ -56,149 +98,222 @@ fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<
     (w0, w1, strat0, strat1)
 }
 
-fn mark_winner(winner: &mut [Option<usize>], excluded: &mut [bool], nodes: &[usize], player: usize) {
-    for &v in nodes {
-        winner[v] = Some(player);
-        excluded[v] = true;
+fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle> {
+    if !in_game.iter().any(|&x| x) {
+        return Vec::new();
     }
-}
 
-fn apply_strategies(
-    game: &ParityGame,
-    strategy_map: &mut [Option<usize>],
-    strategies: &[Option<usize>],
-    player: usize,
-) {
-    for (idx, entry) in strategies.iter().enumerate() {
-        if entry.is_some() && strategy_map[idx].is_none() && game.get_owner(idx) == player {
-            strategy_map[idx] = *entry;
+    let (p, alpha) = highest_priority(game, in_game);
+    let targets = nodes_with_priority(game, in_game, p);
+
+    let sigma_init = vec![None; game.num_nodes()];
+    let escape_map = build_escape_map(game.num_nodes(), tangles, alpha);
+    let (z, sigma) = tangle_attract(
+        game,
+        tangles,
+        &escape_map,
+        in_game,
+        &targets,
+        alpha,
+        &sigma_init,
+    );
+
+    if z.is_empty() {
+        return Vec::new();
+    }
+
+    let mut in_z = vec![false; game.num_nodes()];
+    for &v in &z {
+        in_z[v] = true;
+    }
+
+    let mut closed = true;
+    for &v in &z {
+        if game.get_owner(v) == alpha {
+            if let Some(succ) = sigma[v] {
+                if !in_z[succ] {
+                    closed = false;
+                    break;
+                }
+            } else {
+                closed = false;
+                break;
+            }
         }
     }
+
+    let mut next_game = in_game.to_vec();
+    for &v in &z {
+        next_game[v] = false;
+    }
+
+    if closed {
+        let mut result = search(game, tangles, &next_game);
+        let mut bottoms = bottom_sccs(game, &z, &sigma, alpha);
+        result.append(&mut bottoms);
+        result
+    } else {
+        search(game, tangles, &next_game)
+    }
 }
 
-struct Tangle {
-    nodes: Vec<usize>,
+fn tangle_attract(
+    game: &ParityGame,
+    tangles: &[Tangle],
+    escape_map: &[Vec<usize>],
+    in_game: &[bool],
+    z_init: &[usize],
     player: usize,
-    max_priority: usize,
-    strategy: Vec<Option<usize>>,
+    sigma_init: &[Option<usize>],
+) -> (Vec<usize>, Vec<Option<usize>>) {
+    let mut in_z = vec![false; game.num_nodes()];
+    let mut queue = VecDeque::new();
+    let mut sigma = sigma_init.to_vec();
+
+    for &v in z_init {
+        if in_game[v] && !in_z[v] {
+            in_z[v] = true;
+            queue.push_back(v);
+        }
+    }
+
+    while let Some(v) = queue.pop_front() {
+        for &pred in game.get_predecessors(v) {
+            if !in_game[pred] || in_z[pred] {
+                continue;
+            }
+
+            let can_attract = if game.get_owner(pred) == player {
+                true
+            } else {
+                game.get_successors(pred)
+                    .iter()
+                    .filter(|&&s| in_game[s])
+                    .all(|&s| in_z[s])
+            };
+
+            if can_attract {
+                in_z[pred] = true;
+                queue.push_back(pred);
+                if game.get_owner(pred) == player && sigma[pred].is_none() {
+                    sigma[pred] = Some(v);
+                }
+            }
+        }
+
+        for &tidx in &escape_map[v] {
+            let tangle = &tangles[tidx];
+            if !tangle.nodes.iter().all(|&u| in_game[u] || in_z[u]) {
+                continue;
+            }
+            if !tangle.escapes.iter().all(|&e| in_z[e]) {
+                continue;
+            }
+
+            for &u in &tangle.nodes {
+                if in_game[u] && !in_z[u] {
+                    in_z[u] = true;
+                    queue.push_back(u);
+                }
+            }
+
+            for (idx, entry) in tangle.strategy.iter().enumerate() {
+                if in_z[idx] && entry.is_some() && sigma[idx].is_none() && game.get_owner(idx) == player {
+                    sigma[idx] = *entry;
+                }
+            }
+        }
+    }
+
+    let mut z = Vec::new();
+    for v in 0..game.num_nodes() {
+        if in_z[v] {
+            z.push(v);
+        }
+    }
+
+    (z, sigma)
 }
 
-fn find_closed_tangles(game: &ParityGame, excluded: &[bool]) -> Vec<Tangle> {
-    let sccs = compute_sccs(game, excluded);
+fn bottom_sccs(
+    game: &ParityGame,
+    region: &[usize],
+    sigma: &[Option<usize>],
+    player: usize,
+) -> Vec<Tangle> {
+    let mut in_region = vec![false; game.num_nodes()];
+    for &v in region {
+        in_region[v] = true;
+    }
+
+    let sccs = compute_restricted_sccs(game, &in_region, sigma, player);
     let mut tangles = Vec::new();
 
     for scc in sccs {
-        if scc.is_empty() {
+        if !is_nontrivial_restricted(game, &scc, &in_region, sigma, player) {
             continue;
         }
 
-        if !is_nontrivial_scc(game, &scc) {
+        if !is_bottom_scc(game, &scc, &in_region, sigma, player) {
             continue;
         }
 
-        let max_priority = scc
-            .iter()
-            .map(|&v| game.get_priority(v))
-            .max()
-            .unwrap_or(0);
-        let player = max_priority % 2;
-
-        let mut in_scc = vec![false; game.num_nodes()];
+        let mut strategy = vec![None; game.num_nodes()];
         for &v in &scc {
-            in_scc[v] = true;
-        }
-
-        if !is_closed_tangle(game, &in_scc, player) {
-            continue;
-        }
-
-        let mut excluded_sub = excluded.to_vec();
-        for v in 0..game.num_nodes() {
-            if !in_scc[v] {
-                excluded_sub[v] = true;
+            if game.get_owner(v) == player {
+                strategy[v] = sigma[v];
             }
         }
 
-        let (w0, w1, rs0, rs1) = zielonka_solve(game, &excluded_sub);
-        if player == 0 {
-            if !w1.is_empty() {
-                continue;
-            }
-        } else if !w0.is_empty() {
-            continue;
-        }
-
-        let strategy = if player == 0 { rs0 } else { rs1 };
+        let escapes = compute_escapes(game, &scc, player, &strategy);
 
         tangles.push(Tangle {
             nodes: scc,
             player,
-            max_priority,
             strategy,
+            escapes,
         });
     }
 
     tangles
 }
 
-fn is_closed_tangle(game: &ParityGame, in_scc: &[bool], player: usize) -> bool {
-    for v in 0..game.num_nodes() {
-        if !in_scc[v] {
-            continue;
-        }
-
-        if game.get_owner(v) == player {
-            if !game.get_successors(v).iter().any(|&s| in_scc[s]) {
-                return false;
-            }
-        } else {
-            if game.get_successors(v).iter().any(|&s| !in_scc[s]) {
-                return false;
-            }
-        }
-    }
-    true
-}
-
-fn is_nontrivial_scc(game: &ParityGame, scc: &[usize]) -> bool {
-    if scc.len() > 1 {
-        return true;
-    }
-    if let Some(&v) = scc.first() {
-        return game.get_successors(v).iter().any(|&s| s == v);
-    }
-    false
-}
-
-fn compute_sccs(game: &ParityGame, excluded: &[bool]) -> Vec<Vec<usize>> {
+fn compute_restricted_sccs(
+    game: &ParityGame,
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
+) -> Vec<Vec<usize>> {
     let mut visited = vec![false; game.num_nodes()];
     let mut order = Vec::new();
 
     for v in 0..game.num_nodes() {
-        if excluded[v] || visited[v] {
+        if !in_region[v] || visited[v] {
             continue;
         }
-        dfs_finish_order(game, excluded, v, &mut visited, &mut order);
+        dfs_restricted_order(game, in_region, sigma, player, v, &mut visited, &mut order);
     }
 
     let mut visited_rev = vec![false; game.num_nodes()];
     let mut sccs = Vec::new();
 
     while let Some(v) = order.pop() {
-        if excluded[v] || visited_rev[v] {
+        if !in_region[v] || visited_rev[v] {
             continue;
         }
         let mut component = Vec::new();
-        dfs_collect_scc(game, excluded, v, &mut visited_rev, &mut component);
+        dfs_restricted_collect(game, in_region, sigma, player, v, &mut visited_rev, &mut component);
         sccs.push(component);
     }
 
     sccs
 }
 
-fn dfs_finish_order(
+fn dfs_restricted_order(
     game: &ParityGame,
-    excluded: &[bool],
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
     start: usize,
     visited: &mut [bool],
     order: &mut Vec<usize>,
@@ -207,11 +322,11 @@ fn dfs_finish_order(
     visited[start] = true;
 
     while let Some((node, idx)) = stack.pop() {
-        let successors = game.get_successors(node);
+        let successors = restricted_successors(game, in_region, sigma, player, node);
         if idx < successors.len() {
             let next = successors[idx];
             stack.push((node, idx + 1));
-            if !excluded[next] && !visited[next] {
+            if !visited[next] {
                 visited[next] = true;
                 stack.push((next, 0));
             }
@@ -221,9 +336,11 @@ fn dfs_finish_order(
     }
 }
 
-fn dfs_collect_scc(
+fn dfs_restricted_collect(
     game: &ParityGame,
-    excluded: &[bool],
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
     start: usize,
     visited: &mut [bool],
     component: &mut Vec<usize>,
@@ -234,11 +351,226 @@ fn dfs_collect_scc(
     while let Some(node) = stack.pop() {
         component.push(node);
         for &pred in game.get_predecessors(node) {
-            if excluded[pred] || visited[pred] {
+            if !in_region[pred] || visited[pred] {
+                continue;
+            }
+            if !restricted_edge_exists(game, in_region, sigma, player, pred, node) {
                 continue;
             }
             visited[pred] = true;
             stack.push(pred);
         }
     }
+}
+
+fn restricted_successors(
+    game: &ParityGame,
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
+    node: usize,
+) -> Vec<usize> {
+    if !in_region[node] {
+        return Vec::new();
+    }
+    if game.get_owner(node) == player {
+        if let Some(succ) = sigma[node] {
+            if in_region[succ] {
+                return vec![succ];
+            }
+        }
+        Vec::new()
+    } else {
+        game.get_successors(node)
+            .iter()
+            .copied()
+            .filter(|&s| in_region[s])
+            .collect()
+    }
+}
+
+fn restricted_edge_exists(
+    game: &ParityGame,
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
+    from: usize,
+    to: usize,
+) -> bool {
+    if !in_region[from] || !in_region[to] {
+        return false;
+    }
+    if game.get_owner(from) == player {
+        sigma[from] == Some(to)
+    } else {
+        game.get_successors(from).iter().any(|&s| s == to)
+    }
+}
+
+fn is_bottom_scc(
+    game: &ParityGame,
+    scc: &[usize],
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
+) -> bool {
+    let mut in_scc = vec![false; game.num_nodes()];
+    for &v in scc {
+        in_scc[v] = true;
+    }
+
+    for &v in scc {
+        for succ in restricted_successors(game, in_region, sigma, player, v) {
+            if !in_scc[succ] {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn is_nontrivial_restricted(
+    game: &ParityGame,
+    scc: &[usize],
+    in_region: &[bool],
+    sigma: &[Option<usize>],
+    player: usize,
+) -> bool {
+    if scc.len() > 1 {
+        return true;
+    }
+    if let Some(&v) = scc.first() {
+        if game.get_owner(v) == player {
+            return sigma[v] == Some(v);
+        }
+        return game.get_successors(v).iter().any(|&s| s == v && in_region[s]);
+    }
+    false
+}
+
+fn compute_escapes(
+    game: &ParityGame,
+    nodes: &[usize],
+    player: usize,
+    strategy: &[Option<usize>],
+) -> Vec<usize> {
+    let mut in_nodes = vec![false; game.num_nodes()];
+    for &v in nodes {
+        in_nodes[v] = true;
+    }
+
+    let mut escapes = HashSet::new();
+    for &v in nodes {
+        if game.get_owner(v) == player {
+            if let Some(succ) = strategy[v] {
+                if !in_nodes[succ] {
+                    escapes.insert(succ);
+                }
+            }
+        } else {
+            for &succ in game.get_successors(v) {
+                if !in_nodes[succ] {
+                    escapes.insert(succ);
+                }
+            }
+        }
+    }
+
+    escapes.into_iter().collect()
+}
+
+fn build_escape_map(
+    nodes: usize,
+    tangles: &[Tangle],
+    player: usize,
+) -> Vec<Vec<usize>> {
+    let mut map = vec![Vec::new(); nodes];
+    for (idx, t) in tangles.iter().enumerate() {
+        if t.player != player {
+            continue;
+        }
+        for &e in &t.escapes {
+            if e < nodes {
+                map[e].push(idx);
+            }
+        }
+    }
+    map
+}
+
+fn mark_winner(winner: &mut [Option<usize>], in_game: &mut [bool], nodes: &[usize], player: usize) {
+    for &v in nodes {
+        winner[v] = Some(player);
+        in_game[v] = false;
+    }
+}
+
+fn merge_strategy(
+    target: &mut [Option<usize>],
+    source: &[Option<usize>],
+    player: usize,
+    game: &ParityGame,
+) {
+    for (idx, entry) in source.iter().enumerate() {
+        if entry.is_some() && target[idx].is_none() && game.get_owner(idx) == player {
+            target[idx] = *entry;
+        }
+    }
+}
+
+fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize) -> Vec<usize> {
+    let mut in_set = vec![false; nodes];
+    for t in dominions.iter().filter(|t| t.player == player) {
+        for &v in &t.nodes {
+            in_set[v] = true;
+        }
+    }
+
+    let mut result = Vec::new();
+    for v in 0..nodes {
+        if in_set[v] {
+            result.push(v);
+        }
+    }
+    result
+}
+
+fn highest_priority(game: &ParityGame, in_game: &[bool]) -> (usize, usize) {
+    let mut max_prio = 0;
+    for v in 0..game.num_nodes() {
+        if in_game[v] {
+            max_prio = max_prio.max(game.get_priority(v));
+        }
+    }
+    (max_prio, max_prio % 2)
+}
+
+fn nodes_with_priority(game: &ParityGame, in_game: &[bool], prio: usize) -> Vec<usize> {
+    game.get_nodes_with_priority(prio)
+        .into_iter()
+        .filter(|&v| in_game[v])
+        .collect()
+}
+
+fn zielonka_fallback(
+    game: &ParityGame,
+    in_game: &[bool],
+) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+    let mut excluded = vec![true; game.num_nodes()];
+    for v in 0..game.num_nodes() {
+        if in_game[v] {
+            excluded[v] = false;
+        }
+    }
+
+    let (w0, w1, s0, s1) = crate::zielonka::zielonka_solve(game, &excluded);
+    (w0, w1, s0, s1)
+}
+
+#[derive(Clone)]
+struct Tangle {
+    nodes: Vec<usize>,
+    player: usize,
+    strategy: Vec<Option<usize>>,
+    escapes: Vec<usize>,
 }
