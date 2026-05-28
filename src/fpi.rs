@@ -1,11 +1,10 @@
 use crate::parity_game::ParityGame;
 
-pub fn run_fpi(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>), String> {
-    let (w0, w1, strat0, strat1) = solve(game);
-    Ok((w0, w1, strat0, strat1))
+pub fn run_fpi(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+    Ok(solve(game))
 }
 
-fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>) {
+fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
     let highest_priority = game.get_max_priority();
     
     let mut distractions = vec![false; game.num_nodes()];
@@ -54,19 +53,19 @@ fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec
 
     let mut w0 = Vec::new();
     let mut w1 = Vec::new();
-    let mut strat0 = Vec::new();
-    let mut strat1 = Vec::new();
+    let mut strat0 = vec![None; game.num_nodes()];
+    let mut strat1 = vec![None; game.num_nodes()];
 
     for v in game.get_nodes() {
         if winner(game, v, &distractions) == 0 {
             w0.push(v);
-            if let Some(s) = strat[v] && game.get_owner(v) == 0 {
-                strat0.push((v, s));
+            if game.get_owner(v) == 0 {
+                strat0[v] = strat[v];
             }
         } else {
             w1.push(v);
-            if let Some(s) = strat[v] && game.get_owner(v) == 1 {
-                strat1.push((v, s));
+            if game.get_owner(v) == 1 {
+                strat1[v] = strat[v];
             }
         }
     }

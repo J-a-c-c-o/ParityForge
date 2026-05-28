@@ -3,11 +3,13 @@ mod utils;
 mod pg_parser;
 mod zielonka;
 mod fpi;
+mod tl;
 
 use clap::{Parser, Subcommand};
 use crate::pg_parser::{parse_pg, strat_to_sol};
 use crate::zielonka::run_zielonka;
 use crate::fpi::run_fpi;
+use crate::tl::run_tl;
 
 /// ParityTool CLI
 #[derive(Parser)]
@@ -43,6 +45,7 @@ fn main() {
                 "default" => default(&input, &output),
                 "zielonka" => zielonka(&input, &output),
                 "fpi" => fpi(&input, &output),
+                "tl" => tl(&input, &output),
                 _ => {
                     eprintln!("Algorithm '{}' not implemented yet.", algorithm);
                     std::process::exit(2);
@@ -93,6 +96,30 @@ fn fpi(file: &str, output_file: &str) {
     let result = run_fpi(&game.clone().unwrap());
     if let Err(e) = result {
         eprintln!("Error running FPI algorithm: {}", e);
+        std::process::exit(1);
+    }
+
+    if let Ok((winning_region0, winning_region1, strategy_0, strategy_1)) = result {
+        let output = strat_to_sol(&game.unwrap(), &strategy_0, &strategy_1, &winning_region0, &winning_region1);
+
+        std::fs::write(&output_file, output).unwrap_or_else(|e| {
+            eprintln!("Error writing output file '{}': {}", output_file, e);
+            std::process::exit(1);
+        });
+        println!("Solution written to '{}'", output_file);
+    }
+}
+
+fn tl(file: &str, output_file: &str) {
+    let input = std::fs::read_to_string(file).unwrap_or_else(|e| {
+        eprintln!("Error reading file '{}': {}", file, e);
+        std::process::exit(1);
+    });
+
+    let game = parse_pg(&input);
+    let result = run_tl(&game.clone().unwrap());
+    if let Err(e) = result {
+        eprintln!("Error running tangle learning algorithm: {}", e);
         std::process::exit(1);
     }
 

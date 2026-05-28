@@ -1,16 +1,20 @@
 use crate::parity_game::ParityGame;
 use crate::utils::attract;
 
-pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>), String> {
+pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
     let excluded = vec![false; game.num_nodes()];
-    let (w0, w1, strat0, strat1) = solve(game, &excluded);
-    Ok((w0, w1, strat0, strat1))
+    Ok(solve(game, &excluded))
+}
+
+pub fn zielonka_solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+     solve(game, excluded)
 }
 
 
-fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<(usize, usize)>, Vec<(usize, usize)>) {
+fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
     if excluded.iter().all(|&is_excluded| is_excluded) {
-        return (vec![], vec![], vec![], vec![]);
+        let empty = vec![None; game.num_nodes()];
+        return (vec![], vec![], empty.clone(), empty);
     }
 
     let max_priority = game
@@ -43,7 +47,7 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<(
 
     let (b, mut strat_b) = attract(game, excluded, opponent_region, 1 - player);
 
-    strat_b.extend(opponent_strategy.iter().copied());
+    merge_strategy(&mut strat_b, opponent_strategy);
     
     let mut b_sorted = b.clone();
     b_sorted.sort_unstable();
@@ -53,12 +57,14 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<(
     if b_sorted == opp_sorted {
         if player == 0 {
             w0.extend(a);
-            strat_w0.extend(strat_a.iter().copied());
-            strat_w0.extend(pick(game, &max_nodes, &w0));
+            merge_strategy(&mut strat_w0, &strat_a);
+            let pick_strat = pick(game, &max_nodes, &w0);
+            merge_strategy(&mut strat_w0, &pick_strat);
         } else {
             w1.extend(a);
-            strat_w1.extend(strat_a.iter().copied());
-            strat_w1.extend(pick(game, &max_nodes, &w1));
+            merge_strategy(&mut strat_w1, &strat_a);
+            let pick_strat = pick(game, &max_nodes, &w1);
+            merge_strategy(&mut strat_w1, &pick_strat);
         }
 
 
@@ -73,10 +79,10 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<(
 
         if player == 0 {
             w1.extend(b);
-            strat_w1.extend(strat_b.iter().copied());
+            merge_strategy(&mut strat_w1, &strat_b);
         } else {
             w0.extend(b);
-            strat_w0.extend(strat_b.iter().copied());
+            merge_strategy(&mut strat_w0, &strat_b);
         }
 
         (w0, w1, strat_w0, strat_w1)
@@ -84,15 +90,23 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<(
 }
 
 
-fn pick(game: &ParityGame, max_nodes: &[usize], winning_region: &[usize]) -> Vec<(usize, usize)> {
-    let mut strategies = Vec::new();
+fn pick(game: &ParityGame, max_nodes: &[usize], winning_region: &[usize]) -> Vec<Option<usize>> {
+    let mut strategies = vec![None; game.num_nodes()];
     for &node in max_nodes {
         for &successor in game.get_successors(node) {
             if winning_region.contains(&successor) {
-                strategies.push((node, successor));
+                strategies[node] = Some(successor);
                 break;
             }
         }
     }
     strategies
+}
+
+fn merge_strategy(target: &mut [Option<usize>], source: &[Option<usize>]) {
+    for (idx, entry) in source.iter().enumerate() {
+        if target[idx].is_none() {
+            target[idx] = *entry;
+        }
+    }
 }

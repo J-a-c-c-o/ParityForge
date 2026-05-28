@@ -1,9 +1,2 @@
 echo "Zylonka alogrithm test"
-./oink/build/test_solvers -e "./target/release/ParityTool solve %I %O" | tail -n 3
-
-echo ""
-
-echo "FPI algorithm test"
-./oink/build/test_solvers -e "./target/release/ParityTool solve %I %O --algorithm fpi" | tail -n 3
-
-
+./oink/build/test_solvers -e "./target/release/ParityTool solve %I %O --algorithm zielonka" -e "./target/release/ParityTool solve %I %O --algorithm fpi" -e "./target/release/ParityTool solve %I %O --algorithm tl" ./oink/examples/
