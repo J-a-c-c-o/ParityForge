@@ -1,15 +1,11 @@
 mod parity_game;
 mod utils;
 mod pg_parser;
-mod zielonka;
-mod fpi;
-mod tl;
+mod solvers;
 
 use clap::{Parser, Subcommand};
 use crate::pg_parser::{parse_pg, strat_to_sol};
-use crate::zielonka::run_zielonka;
-use crate::fpi::run_fpi;
-use crate::tl::run_tl;
+use crate::solvers::{run_fpi, run_tl, run_zielonka};
 
 /// ParityTool CLI
 #[derive(Parser)]

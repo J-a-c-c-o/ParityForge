@@ -563,7 +563,7 @@ fn zielonka_fallback(
         }
     }
 
-    let (w0, w1, s0, s1) = crate::zielonka::zielonka_solve(game, &excluded);
+    let (w0, w1, s0, s1) = crate::solvers::zielonka::zielonka_solve(game, &excluded);
     (w0, w1, s0, s1)
 }
 

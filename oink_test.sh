@@ -1,1 +1,3 @@
-./oink/build/test_solvers -e "./target/release/ParityTool solve %I %O --algorithm zielonka" -e "./target/release/ParityTool solve %I %O --algorithm fpi" -e "./target/release/ParityTool solve %I %O --algorithm tl" ./oink/examples/*.pg
+cd ./tmp
+
+../oink/build/test_solvers -e "../target/release/ParityTool solve %I %O --algorithm zielonka" -e "../target/release/ParityTool solve %I %O --algorithm fpi" -e "../target/release/ParityTool solve %I %O --algorithm tl" ../oink/tests
