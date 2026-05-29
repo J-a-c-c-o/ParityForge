@@ -19,7 +19,7 @@ fn tangle_learning(
     let mut tangles: Vec<Tangle> = Vec::new();
 
     while in_game.iter().any(|&x| x) {
-        let mut new_tangles = search(game, &tangles, &in_game);
+        let new_tangles = search(game, &tangles, &in_game);
 
         if new_tangles.is_empty() {
             let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
