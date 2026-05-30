@@ -1,5 +1,5 @@
 use crate::parity_game::ParityGame;
-use crate::utils::attract;
+use std::collections::{HashSet, VecDeque};
 
 pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
     let excluded = vec![false; game.num_nodes()];
@@ -33,7 +33,7 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
         .filter(|v| !excluded[*v])
         .collect();
 
-    let (a, strat_a) = attract(game, &excluded, &max_nodes, player);
+    let (a, strat_a) = attract(game, &excluded, &max_nodes, player, vec![None; game.num_nodes()]);
 
     let mut excluded_a = excluded.to_vec();
     for node in &a {
@@ -45,9 +45,7 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
     let opponent_region = if player == 0 { &w1 } else { &w0 };
     let opponent_strategy = if player == 0 { &strat_w1 } else { &strat_w0 };
 
-    let (b, mut strat_b) = attract(game, excluded, opponent_region, 1 - player);
-
-    merge_strategy(&mut strat_b, opponent_strategy);
+    let (b, strat_b) = attract(game, &excluded, opponent_region, 1 - player, opponent_strategy.clone());
     
     let mut b_sorted = b.clone();
     b_sorted.sort_unstable();
@@ -109,4 +107,62 @@ fn merge_strategy(target: &mut [Option<usize>], source: &[Option<usize>]) {
             target[idx] = *entry;
         }
     }
+}
+
+
+fn attract(
+    game: &ParityGame, 
+    excluded: &[bool], 
+    nodes_to_attract: &[usize], 
+    player: usize,
+    mut strategy: Vec<Option<usize>>
+) -> (Vec<usize>, Vec<Option<usize>>) {
+    let mut attractor = HashSet::new();
+    let mut queue = VecDeque::new();
+
+    let mut out_degree = vec![0; game.num_nodes()];
+
+    for node in game.get_nodes() {
+        if !excluded[node] && game.get_owner(node) == 1 - player {
+            let valid_edges_count = game.get_edges(node)
+                .iter()
+                .filter(|target| !excluded[**target])
+                .count();
+            out_degree[node] = valid_edges_count;
+        }
+    }
+
+    for &node in nodes_to_attract {
+        if !excluded[node] {
+            if attractor.insert(node) {
+                queue.push_back(node);
+            }
+        }
+    }
+
+    while let Some(current) = queue.pop_front() {
+        for &predecessor in game.get_predecessors(current) {
+            if excluded[predecessor] || attractor.contains(&predecessor) {
+                continue;
+            }
+
+            if game.get_owner(predecessor) == player {
+                if strategy[predecessor].is_none() {
+                    strategy[predecessor] = Some(current);
+                }
+                attractor.insert(predecessor);
+                queue.push_back(predecessor);
+            } else {
+                if out_degree[predecessor] > 0 {
+                    out_degree[predecessor] -= 1;
+                    if out_degree[predecessor] == 0 {
+                        attractor.insert(predecessor);
+                        queue.push_back(predecessor);
+                    }
+                }
+            }
+        }
+    }
+
+    (attractor.into_iter().collect(), strategy)
 }

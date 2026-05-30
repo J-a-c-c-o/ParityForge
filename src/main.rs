@@ -1,5 +1,4 @@
 mod parity_game;
-mod utils;
 mod pg_parser;
 mod solvers;
 
