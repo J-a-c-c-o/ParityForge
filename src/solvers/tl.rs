@@ -246,18 +246,10 @@ fn bottom_sccs(
         in_region[v] = true;
     }
 
-    let sccs = compute_restricted_sccs(game, &in_region, sigma, player);
+    let sccs = game.bottom_sccs(&in_region, sigma, player);
     let mut tangles = Vec::new();
 
     for scc in sccs {
-        if !is_nontrivial_restricted(game, &scc, &in_region, sigma, player) {
-            continue;
-        }
-
-        if !is_bottom_scc(game, &scc, &in_region, sigma, player) {
-            continue;
-        }
-
         let mut strategy = vec![None; game.num_nodes()];
         for &v in &scc {
             if game.get_owner(v) == player {
@@ -276,176 +268,6 @@ fn bottom_sccs(
     }
 
     tangles
-}
-
-fn compute_restricted_sccs(
-    game: &ParityGame,
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-) -> Vec<Vec<usize>> {
-    let mut visited = vec![false; game.num_nodes()];
-    let mut order = Vec::new();
-
-    for v in 0..game.num_nodes() {
-        if !in_region[v] || visited[v] {
-            continue;
-        }
-        dfs_restricted_order(game, in_region, sigma, player, v, &mut visited, &mut order);
-    }
-
-    let mut visited_rev = vec![false; game.num_nodes()];
-    let mut sccs = Vec::new();
-
-    while let Some(v) = order.pop() {
-        if !in_region[v] || visited_rev[v] {
-            continue;
-        }
-        let mut component = Vec::new();
-        dfs_restricted_collect(game, in_region, sigma, player, v, &mut visited_rev, &mut component);
-        sccs.push(component);
-    }
-
-    sccs
-}
-
-fn dfs_restricted_order(
-    game: &ParityGame,
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-    start: usize,
-    visited: &mut [bool],
-    order: &mut Vec<usize>,
-) {
-    let mut stack = vec![(start, 0usize)];
-    visited[start] = true;
-
-    while let Some((node, idx)) = stack.pop() {
-        let successors = restricted_successors(game, in_region, sigma, player, node);
-        if idx < successors.len() {
-            let next = successors[idx];
-            stack.push((node, idx + 1));
-            if !visited[next] {
-                visited[next] = true;
-                stack.push((next, 0));
-            }
-        } else {
-            order.push(node);
-        }
-    }
-}
-
-fn dfs_restricted_collect(
-    game: &ParityGame,
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-    start: usize,
-    visited: &mut [bool],
-    component: &mut Vec<usize>,
-) {
-    let mut stack = vec![start];
-    visited[start] = true;
-
-    while let Some(node) = stack.pop() {
-        component.push(node);
-        for &pred in game.get_predecessors(node) {
-            if !in_region[pred] || visited[pred] {
-                continue;
-            }
-            if !restricted_edge_exists(game, in_region, sigma, player, pred, node) {
-                continue;
-            }
-            visited[pred] = true;
-            stack.push(pred);
-        }
-    }
-}
-
-fn restricted_successors(
-    game: &ParityGame,
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-    node: usize,
-) -> Vec<usize> {
-    if !in_region[node] {
-        return Vec::new();
-    }
-    if game.get_owner(node) == player {
-        if let Some(succ) = sigma[node] {
-            if in_region[succ] {
-                return vec![succ];
-            }
-        }
-        Vec::new()
-    } else {
-        game.get_successors(node)
-            .iter()
-            .copied()
-            .filter(|&s| in_region[s])
-            .collect()
-    }
-}
-
-fn restricted_edge_exists(
-    game: &ParityGame,
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-    from: usize,
-    to: usize,
-) -> bool {
-    if !in_region[from] || !in_region[to] {
-        return false;
-    }
-    if game.get_owner(from) == player {
-        sigma[from] == Some(to)
-    } else {
-        game.get_successors(from).iter().any(|&s| s == to)
-    }
-}
-
-fn is_bottom_scc(
-    game: &ParityGame,
-    scc: &[usize],
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-) -> bool {
-    let mut in_scc = vec![false; game.num_nodes()];
-    for &v in scc {
-        in_scc[v] = true;
-    }
-
-    for &v in scc {
-        for succ in restricted_successors(game, in_region, sigma, player, v) {
-            if !in_scc[succ] {
-                return false;
-            }
-        }
-    }
-    true
-}
-
-fn is_nontrivial_restricted(
-    game: &ParityGame,
-    scc: &[usize],
-    in_region: &[bool],
-    sigma: &[Option<usize>],
-    player: usize,
-) -> bool {
-    if scc.len() > 1 {
-        return true;
-    }
-    if let Some(&v) = scc.first() {
-        if game.get_owner(v) == player {
-            return sigma[v] == Some(v);
-        }
-        return game.get_successors(v).iter().any(|&s| s == v && in_region[s]);
-    }
-    false
 }
 
 fn compute_escapes(
@@ -536,12 +358,15 @@ fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize) -> 
 }
 
 fn highest_priority(game: &ParityGame, in_game: &[bool]) -> (usize, usize) {
-    let mut max_prio = 0;
-    for v in 0..game.num_nodes() {
-        if in_game[v] {
-            max_prio = max_prio.max(game.get_priority(v));
-        }
-    }
+
+    let max_prio = game
+        .get_nodes()
+        .into_iter()
+        .filter(|&v| in_game[v])
+        .map(|v| game.get_priority(v))
+        .max()
+        .unwrap_or(0);
+        
     (max_prio, max_prio % 2)
 }
 
