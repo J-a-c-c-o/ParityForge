@@ -9,6 +9,12 @@ pub struct ParityGame {
     labels: Vec<Option<String>>,
 }
 
+struct TarjanFrame {
+    node: usize,
+    neighbors: Vec<usize>,
+    next_neighbor: usize,
+}
+
 #[allow(dead_code)]
 impl ParityGame {
     pub fn new(nodes: usize) -> Self {
@@ -111,29 +117,7 @@ impl ParityGame {
         sigma: &[Option<usize>],
         player: usize,
     ) -> Vec<Vec<usize>> {
-        let mut visited = vec![false; self.nodes];
-        let mut order = Vec::new();
-
-        for v in 0..self.nodes {
-            if in_region[v] && !visited[v] {
-                self.dfs_order(in_region, sigma, player, v, &mut visited, &mut order);
-            }
-        }
-
-        let mut visited_rev = vec![false; self.nodes];
-        let mut sccs = Vec::new();
-
-        while let Some(v) = order.pop() {
-            if !in_region[v] || visited_rev[v] {
-                continue;
-            }
-
-            let mut component = Vec::new();
-            self.dfs_collect(in_region, sigma, player, v, &mut visited_rev, &mut component);
-            sccs.push(component);
-        }
-
-        sccs
+        self.tarjan_sccs(in_region, sigma, player)
     }
 
     pub fn bottom_sccs(
@@ -149,109 +133,110 @@ impl ParityGame {
             .collect()
     }
 
-    fn dfs_order(
+    fn tarjan_sccs(
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
         player: usize,
-        start: usize,
-        visited: &mut [bool],
-        order: &mut Vec<usize>,
-    ) {
-        let mut stack = vec![(start, 0usize)];
-        visited[start] = true;
+    ) -> Vec<Vec<usize>> {
+        let mut index = vec![None; self.nodes];
+        let mut lowlink = vec![0; self.nodes];
+        let mut on_stack = vec![false; self.nodes];
+        let mut active_stack = Vec::new();
+        let mut call_stack = Vec::new();
+        let mut next_index = 0;
+        let mut sccs = Vec::new();
 
-        while let Some((node, idx)) = stack.pop() {
-            let next_len = if self.get_owner(node) == player {
-                if sigma[node].is_some_and(|succ| in_region[succ]) {
-                    1
+        for start in 0..self.nodes {
+            if !in_region[start] || index[start].is_some() {
+                continue;
+            }
+
+            index[start] = Some(next_index);
+            lowlink[start] = next_index;
+            next_index += 1;
+            active_stack.push(start);
+            on_stack[start] = true;
+            call_stack.push(TarjanFrame {
+                node: start,
+                neighbors: self.filtered_successors(in_region, sigma, player, start),
+                next_neighbor: 0,
+            });
+
+            while let Some(frame) = call_stack.last_mut() {
+                let node = frame.node;
+
+                if frame.next_neighbor < frame.neighbors.len() {
+                    let next = frame.neighbors[frame.next_neighbor];
+                    frame.next_neighbor += 1;
+
+                    if index[next].is_none() {
+                        index[next] = Some(next_index);
+                        lowlink[next] = next_index;
+                        next_index += 1;
+                        active_stack.push(next);
+                        on_stack[next] = true;
+                        call_stack.push(TarjanFrame {
+                            node: next,
+                            neighbors: self.filtered_successors(in_region, sigma, player, next),
+                            next_neighbor: 0,
+                        });
+                    } else if on_stack[next] {
+                        lowlink[node] = std::cmp::min(
+                            lowlink[node],
+                            index[next].expect("visited node should have an index"),
+                        );
+                    }
                 } else {
-                    0
-                }
-            } else {
-                self.get_successors(node)
-                    .iter()
-                    .filter(|&&succ| in_region[succ])
-                    .count()
-            };
+                    let node_index = index[node].expect("active node should have an index");
+                    if lowlink[node] == node_index {
+                        let mut component = Vec::new();
 
-            if idx < next_len {
-                let next = self
-                    .filtered_successor_at(in_region, sigma, player, node, idx)
-                    .expect("successor index should exist");
-                stack.push((node, idx + 1));
-                if !visited[next] {
-                    visited[next] = true;
-                    stack.push((next, 0));
+                        loop {
+                            let member = active_stack
+                                .pop()
+                                .expect("Tarjan active stack should not be empty");
+                            on_stack[member] = false;
+                            component.push(member);
+                            if member == node {
+                                break;
+                            }
+                        }
+
+                        sccs.push(component);
+                    }
+
+                    call_stack.pop();
+
+                    if let Some(parent) = call_stack.last() {
+                        lowlink[parent.node] =
+                            std::cmp::min(lowlink[parent.node], lowlink[node]);
+                    }
                 }
-            } else {
-                order.push(node);
             }
         }
+
+        sccs
     }
 
-    fn dfs_collect(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-        player: usize,
-        start: usize,
-        visited: &mut [bool],
-        component: &mut Vec<usize>,
-    ) {
-        let mut stack = vec![start];
-        visited[start] = true;
-
-        while let Some(node) = stack.pop() {
-            component.push(node);
-            for &pred in self.get_predecessors(node) {
-                if !in_region[pred] || visited[pred] {
-                    continue;
-                }
-                if !self.edge_exists(in_region, sigma, player, pred, node) {
-                    continue;
-                }
-                visited[pred] = true;
-                stack.push(pred);
-            }
-        }
-    }
-
-    fn filtered_successor_at(
+    fn filtered_successors(
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
         player: usize,
         node: usize,
-        idx: usize,
-    ) -> Option<usize> {
+    ) -> Vec<usize> {
         if self.get_owner(node) == player {
-            sigma[node].filter(|&succ| in_region[succ])
+            match sigma[node] {
+                Some(succ) if in_region[succ] => vec![succ],
+                _ => Vec::new(),
+            }
         } else {
             self.get_successors(node)
                 .iter()
                 .copied()
                 .filter(|&succ| in_region[succ])
-                .nth(idx)
-        }
-    }
-
-    fn edge_exists(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-        player: usize,
-        from: usize,
-        to: usize,
-    ) -> bool {
-        if !in_region[from] || !in_region[to] {
-            return false;
-        }
-
-        if self.get_owner(from) == player {
-            sigma[from] == Some(to)
-        } else {
-            self.get_successors(from).iter().any(|&succ| succ == to)
+                .collect()
         }
     }
 
