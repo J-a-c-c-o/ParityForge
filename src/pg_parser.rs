@@ -76,3 +76,57 @@ pub fn strat_to_sol(
     }
     output
 }
+
+
+pub fn sol_to_strat(input: &str) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+    let mut winning_region0 = Vec::new();
+    let mut winning_region1 = Vec::new();
+    let mut strategy0 = Vec::new();
+    let mut strategy1 = Vec::new();
+
+    for line in input.lines().collect::<Vec<&str>>()[1..].iter() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let line = line.replace(";", "");
+
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 2 {
+            return Err(format!("Invalid line format: '{}'", line));
+        }
+
+        let node_id: usize = parts[0].parse().map_err(|_| format!("Invalid node ID: '{}'", parts[0]))?;
+        let owner: usize = parts[1].parse().map_err(|_| format!("Invalid owner: '{}'", parts[1]))?;
+
+        if strategy0.len() <= node_id {
+            strategy0.resize(node_id + 1, None);
+        }
+        if strategy1.len() <= node_id {
+            strategy1.resize(node_id + 1, None);
+        }
+
+        if owner == 0 {
+            winning_region0.push(node_id);
+            if parts.len() > 2 {
+                let target: usize = parts[2].parse().map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
+                strategy0[node_id] = Some(target);
+            } else {
+                strategy0[node_id] = None;
+            }
+        } else if owner == 1 {
+            winning_region1.push(node_id);
+            if parts.len() > 2 {
+                let target: usize = parts[2].parse().map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
+                strategy1[node_id] = Some(target);
+            } else {
+                strategy1[node_id] = None;
+            }
+        } else {
+            return Err(format!("Invalid owner value: '{}'", owner));
+        }
+    }
+
+    Ok((winning_region0, winning_region1, strategy0, strategy1))
+}
