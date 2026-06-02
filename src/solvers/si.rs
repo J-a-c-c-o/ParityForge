@@ -103,12 +103,12 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     let mut new_strat0: Vec<Option<usize>> = vec![None; game.num_nodes()];
     let mut new_strat1: Vec<Option<usize>> = vec![None; game.num_nodes()];
     for node in 0..game.num_nodes() {
-        if !is_positive(&final_valuations[node]) {
-            w0.push(node);
-            new_strat0[node] = strat0[node];
-        } else {
+        if is_positive(&final_valuations[node]) {
             w1.push(node);
             new_strat1[node] = strat1[node];
+        } else {
+            w0.push(node);
+            new_strat0[node] = strat0[node];
         }
     }
 
@@ -250,7 +250,7 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat
 
 
     for &pred in game.get_predecessors(node) {
-        if in_halting[pred] || (strat0[pred] != Some(node) && strat1[pred] != Some(node)) {
+        if strat0[pred] != Some(node) && strat1[pred] != Some(node) {
             continue;
         } 
 
