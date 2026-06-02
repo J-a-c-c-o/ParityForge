@@ -19,15 +19,22 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
     }
 
-    let mut halting_set: Vec<usize> = (0..game.num_nodes()).collect();
+    let mut halting_set: Vec<usize> = Vec::new();
+    for node in 0..game.num_nodes() {
+        if game.get_priority(node) % 2 == 1 {
+            halting_set.push(node);
+        }
+    }
 
         
     loop {
         let in_halting = build_halting_map(game.num_nodes(), &halting_set);
-        let mut sigma_or_h_changed = false;
+        let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
+        let mut sigma_changed = false;
+        let mut h_changed = false;
 
         loop {
-            let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
+            
 
             let mut tau_changed = false;
             for node in 0..game.num_nodes() {
@@ -37,6 +44,9 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                     let mut best_val = &valuations[current_succ];
 
                     for &succ in game.get_successors(node).iter() {
+                        if in_halting[succ] {
+                            continue;
+                        }
                         let succ_val = &valuations[succ];
                         if succ_val < best_val {
                             best_val = succ_val;
@@ -56,8 +66,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             }
         }
 
-        
-        let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
         for node in 0..game.num_nodes() {
             if game.get_owner(node) == 0 {
@@ -66,6 +74,9 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                 let mut best_val = &valuations[current_succ];
 
                 for &succ in game.get_successors(node).iter() {
+                    if in_halting[succ] {
+                        continue;
+                    }
                     let succ_val = &valuations[succ];
                     if succ_val > best_val {
                         best_val = succ_val;
@@ -75,21 +86,21 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
                 if best_succ != current_succ {
                     strat0[node] = Some(best_succ);
-                    sigma_or_h_changed = true;
+                    sigma_changed = true;
                 }
             }
         }
 
         halting_set.retain(|&node| {
             if is_positive(&valuations[node]) {
-                sigma_or_h_changed = true;
+                h_changed = true;
                 false 
             } else {
                 true
             }
         });
 
-        if !sigma_or_h_changed {
+        if !sigma_changed && !h_changed {
             break;
         }
     }
@@ -103,7 +114,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     let mut new_strat0: Vec<Option<usize>> = vec![None; game.num_nodes()];
     let mut new_strat1: Vec<Option<usize>> = vec![None; game.num_nodes()];
     for node in 0..game.num_nodes() {
-        if is_positive(&final_valuations[node]) {
+        if &final_valuations[node] == &Valuation::Infinite {
             w0.push(node);
             new_strat0[node] = strat0[node];
         } else {
@@ -119,9 +130,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 fn build_halting_map(node_count: usize, halting_set: &[usize]) -> Vec<bool> {
     let mut in_halting = vec![false; node_count];
     for &node in halting_set {
-        if node < node_count {
-            in_halting[node] = true;
-        }
+        in_halting[node] = true;
     }
     in_halting
 }
