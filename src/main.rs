@@ -5,7 +5,7 @@ mod verifier;
 
 use clap::{Parser, Subcommand};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol};
-use crate::solvers::{run_fpi, run_tl, run_zielonka, run_spm};
+use crate::solvers::{run_fpi, run_tl, run_zielonka, run_spm, run_si};
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::verifier::verify_solution;
 use std::path::{Path, PathBuf};
@@ -47,7 +47,7 @@ enum Commands {
         #[arg(long = "size")]
         random_nodes: Option<usize>,
 
-        /// Maximum number of edges for random games; ignored if input is a file or directory
+        /// Maximum number of edges for a node for random games; ignored if input is a file or directory
         #[arg(long = "maxe")]
         max_edges: Option<usize>,
 
@@ -107,11 +107,12 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
 
 fn run_test_command(input: Option<String>, random_count: Option<usize>, random_nodes: Option<usize>, max_edges: Option<usize>, max_prio: Option<usize>, algorithms: Vec<String>, seed: Option<u64>) {
     let algorithms = if algorithms.is_empty() {
-        vec![
+            vec![
             String::from("zlk"),
             String::from("fpi"),
             String::from("tl"),
             String::from("spm"),
+            String::from("si"),
         ]
     } else {
         algorithms
@@ -162,7 +163,7 @@ fn run_test_command(input: Option<String>, random_count: Option<usize>, random_n
     } else {
         let count = random_count.unwrap_or(100);
         let nodes = random_nodes.unwrap_or(100);
-        let max_edges = max_edges.unwrap_or(4 * nodes);
+        let max_edges = max_edges.unwrap_or(4);
         let max_prio = max_prio.unwrap_or(nodes);
 
         for i in 0..count {
@@ -286,6 +287,7 @@ fn solve_game(
         "fpi" => run_fpi(game).unwrap_or_else(|e| exit_algorithm_error("FPI algorithm", &e)),
         "tl" => run_tl(game).unwrap_or_else(|e| exit_algorithm_error("Tangle Learning algorithm", &e)),
         "spm" => run_spm(game).unwrap_or_else(|e| exit_algorithm_error("SPM algorithm", &e)),
+        "si" => run_si(game).unwrap_or_else(|e| exit_algorithm_error("SI algorithm", &e)),
         _ => {
             eprintln!("Algorithm '{}' not implemented yet.", algorithm);
             std::process::exit(2);

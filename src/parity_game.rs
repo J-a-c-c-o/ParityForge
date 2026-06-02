@@ -363,6 +363,7 @@ impl ParityGameBuilder {
     pub fn random_game(&mut self, size: usize, max_edges: usize, max_priority: usize, seed: Option<u64>) -> &mut Self {
         use rand::rngs::StdRng;
         use rand::{SeedableRng, RngExt, rng};
+        use std::collections::HashSet;
 
         let mut rng = match seed {
             Some(s) => StdRng::seed_from_u64(s),
@@ -373,17 +374,43 @@ impl ParityGameBuilder {
         };
 
         for node in 0..size {
-            let num_edges = rng.random_range(1..=max_edges);
-            for _ in 0..num_edges {
+            let requested = rng.random_range(1..=max_edges);
+            let num_edges = std::cmp::min(requested, size);
+
+            let mut succ_set: HashSet<usize> = HashSet::with_capacity(num_edges);
+            while succ_set.len() < num_edges {
                 let to = rng.random_range(0..size);
+                succ_set.insert(to);
+            }
+
+            for &to in &succ_set {
                 self.add_edge(node, to);
             }
 
             let priority = rng.random_range(0..=max_priority);
             self.set_priority(node, priority);
 
-            let owner = rng.random_range(0..=1);
+            let owner = if rng.random_range(0..100) < 50 { 0 } else { 1 };
             self.set_owner(node, owner);
+        }
+
+        let mut in_degree = vec![0usize; size];
+        for (_from, to) in &self.edges {
+            if *to < size {
+                in_degree[*to] += 1;
+            }
+        }
+
+        for target in 0..size {
+            if in_degree[target] == 0 {
+                let mut src = rng.random_range(0..size);
+                if size > 1 {
+                    while src == target {
+                        src = rng.random_range(0..size);
+                    }
+                }
+                self.add_edge(src, target);
+            }
         }
 
         self
