@@ -312,6 +312,9 @@ impl ParityGame {
 }
 
 
+
+
+
 pub struct ParityGameBuilder {
     nodes: usize,
     edges: Vec<(usize, usize)>,
@@ -356,19 +359,50 @@ impl ParityGameBuilder {
         self
     }    
 
-    pub fn build(self) -> ParityGame {
+
+    pub fn random_game(&mut self, size: usize, max_edges: usize, max_priority: usize, seed: Option<u64>) -> &mut Self {
+        use rand::rngs::StdRng;
+        use rand::{SeedableRng, RngExt, rng};
+
+        let mut rng = match seed {
+            Some(s) => StdRng::seed_from_u64(s),
+            None => {
+                let mut trng = rng();
+                StdRng::from_rng(&mut trng)
+            }
+        };
+
+        for node in 0..size {
+            let num_edges = rng.random_range(1..=max_edges);
+            for _ in 0..num_edges {
+                let to = rng.random_range(0..size);
+                self.add_edge(node, to);
+            }
+
+            let priority = rng.random_range(0..=max_priority);
+            self.set_priority(node, priority);
+
+            let owner = rng.random_range(0..=1);
+            self.set_owner(node, owner);
+        }
+
+        self
+    }
+
+
+    pub fn build(&self) -> ParityGame {
         let mut game = ParityGame::new(self.nodes);
-        for (from, to) in self.edges {
-            game.add_edge(from, to);
+        for (from, to) in &self.edges {
+            game.add_edge(*from, *to);
         }
-        for (node, priority) in self.priorities {
-            game.set_priority(node, priority);
+        for (node, priority) in &self.priorities {
+            game.set_priority(*node, *priority);
         }
-        for (node, label) in self.labels {
-            game.set_label(node, label);
+        for (node, label) in &self.labels {
+            game.set_label(*node, label.clone());
         }
-        for (node, owner) in self.owners {
-            game.set_owner(node, owner);
+        for (node, owner) in &self.owners {
+            game.set_owner(*node, *owner);
         }
         game
     }

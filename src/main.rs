@@ -6,7 +6,7 @@ mod verifier;
 use clap::{Parser, Subcommand};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol};
 use crate::solvers::{run_fpi, run_tl, run_zielonka, run_spm};
-use crate::parity_game::ParityGame;
+use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::verifier::verify_solution;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -37,10 +37,30 @@ enum Commands {
     /// Run one or more algorithms over every .pg file in a file or folder
     Test {
         /// Input file or directory containing .pg files
-        input: String,
+        input: Option<String>,
+
+        /// Count of random games to generate and test; ignored if input is a file or directory
+        #[arg(long= "count")]
+        random_count: Option<usize>,
+
+        /// Number of nodes for random games; ignored if input is a file or directory
+        #[arg(long = "size")]
+        random_nodes: Option<usize>,
+
+        /// Maximum number of edges for random games; ignored if input is a file or directory
+        #[arg(long = "maxe")]
+        max_edges: Option<usize>,
+
+        /// Maximum priority for random games; ignored if input is a file or directory
+        #[arg(long = "maxp")]
+        max_prio: Option<usize>,
+
+        /// Seed for random game generation; ignored if input is a file or directory
+        #[arg(long = "seed")]
+        seed: Option<u64>,
 
         /// Algorithm name to use; repeat this flag to test multiple algorithms
-        #[arg(long = "algorithm")]
+        #[arg(long = "alg")]
         algorithms: Vec<String>,
     },
 
@@ -61,8 +81,8 @@ fn main() {
             run_solve_command(&input, &output, &algorithm);
         }
 
-        Commands::Test { input, algorithms } => {
-            run_test_command(input, algorithms);
+        Commands::Test { input, random_count, random_nodes, max_edges, max_prio, algorithms, seed } => {
+            run_test_command(input, random_count, random_nodes, max_edges, max_prio, algorithms, seed);
         }
 
         Commands::Verify { game, solution } => {
@@ -85,7 +105,7 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
     }
 }
 
-fn run_test_command(input: String, algorithms: Vec<String>) {
+fn run_test_command(input: Option<String>, random_count: Option<usize>, random_nodes: Option<usize>, max_edges: Option<usize>, max_prio: Option<usize>, algorithms: Vec<String>, seed: Option<u64>) {
     let algorithms = if algorithms.is_empty() {
         vec![
             String::from("zlk"),
@@ -97,44 +117,73 @@ fn run_test_command(input: String, algorithms: Vec<String>) {
         algorithms
     };
 
-    let input_paths = collect_pg_inputs(Path::new(&input)).unwrap_or_else(|e| {
-        eprintln!("{}", e);
-        std::process::exit(1);
-    });
-
-    if input_paths.is_empty() {
-        eprintln!("No .pg files found under '{}'", input);
-        std::process::exit(1);
-    }
-
     let mut combined_times: HashMap<String, std::time::Duration> = HashMap::new();
     let mut failures = 0usize;
-    for path in input_paths {
-        let input_text = std::fs::read_to_string(&path).unwrap_or_else(|e| {
-            eprintln!("Error reading file '{}': {}", path.display(), e);
+
+    if let Some(input) = input {
+        let input_paths = collect_pg_inputs(Path::new(&input)).unwrap_or_else(|e| {
+            eprintln!("{}", e);
             std::process::exit(1);
         });
 
-        let game = parse_pg(&input_text).unwrap_or_else(|e| {
-            eprintln!("Error parsing parity game '{}': {}", path.display(), e);
+        if input_paths.is_empty() {
+            eprintln!("No .pg files found under '{}'", input);
             std::process::exit(1);
-        });
+        }
 
-        for algorithm in &algorithms {
-            let start_time = std::time::Instant::now();
-            let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
-            let duration = start_time.elapsed();
-            combined_times.entry(algorithm.clone()).and_modify(|d| *d += duration).or_insert(duration);
-            match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
-                Ok(()) => {
-                    println!("[ok] {} via {} in {:.2?}", path.display(), algorithm, duration);
-                }
-                Err(e) => {
-                    failures += 1;
-                    eprintln!("[fail] {} via {}: {} in {:.2?}", path.display(), algorithm, e, duration);
+        
+        for path in input_paths {
+            let input_text = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+                eprintln!("Error reading file '{}': {}", path.display(), e);
+                std::process::exit(1);
+            });
+
+            let game = parse_pg(&input_text).unwrap_or_else(|e| {
+                eprintln!("Error parsing parity game '{}': {}", path.display(), e);
+                std::process::exit(1);
+            });
+
+            for algorithm in &algorithms {
+                let start_time = std::time::Instant::now();
+                let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
+                let duration = start_time.elapsed();
+                combined_times.entry(algorithm.clone()).and_modify(|d| *d += duration).or_insert(duration);
+                match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
+                    Ok(()) => {
+                        println!("[ok] {} via {} in {:.2?}", path.display(), algorithm, duration);
+                    }
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!("[fail] {} via {}: {} in {:.2?}", path.display(), algorithm, e, duration);
+                    }
                 }
             }
         }
+    } else {
+        let count = random_count.unwrap_or(100);
+        let nodes = random_nodes.unwrap_or(100);
+        let max_edges = max_edges.unwrap_or(4 * nodes);
+        let max_prio = max_prio.unwrap_or(nodes);
+
+        for i in 0..count {
+            let game = ParityGameBuilder::new().random_game(nodes, max_edges, max_prio, seed).build();
+            for algorithm in &algorithms {
+                let start_time = std::time::Instant::now();
+                let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
+                let duration = start_time.elapsed();
+                combined_times.entry(algorithm.clone()).and_modify(|d| *d += duration).or_insert(duration);
+                match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
+                    Ok(()) => {
+                        println!("[ok] random game #{} via {} in {:.2?}", i + 1, algorithm, duration);
+                    }
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!("[fail] random game #{} via {}: {} in {:.2?}", i + 1, algorithm, e, duration);
+                    }
+                }
+            }
+        }
+
     }
 
     println!("Combined times:");
