@@ -29,12 +29,12 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         
     loop {
         let in_halting = build_halting_map(game.num_nodes(), &halting_set);
-        let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
+        
         let mut sigma_changed = false;
         let mut h_changed = false;
 
         loop {
-            
+            let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
             let mut tau_changed = false;
             for node in 0..game.num_nodes() {
@@ -65,6 +65,8 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                 break;
             }
         }
+
+        let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
 
         for node in 0..game.num_nodes() {
