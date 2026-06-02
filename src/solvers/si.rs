@@ -23,10 +23,10 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
         
     loop {
+        let in_halting = build_halting_map(game.num_nodes(), &halting_set);
         let mut sigma_or_h_changed = false;
 
         loop {
-            let in_halting = build_halting_map(game.num_nodes(), &halting_set);
             let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
             let mut tau_changed = false;
@@ -56,7 +56,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             }
         }
 
-        let in_halting = build_halting_map(game.num_nodes(), &halting_set);
+        
         let valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
         for node in 0..game.num_nodes() {
@@ -104,11 +104,11 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     let mut new_strat1: Vec<Option<usize>> = vec![None; game.num_nodes()];
     for node in 0..game.num_nodes() {
         if is_positive(&final_valuations[node]) {
-            w1.push(node);
-            new_strat1[node] = strat1[node];
-        } else {
             w0.push(node);
             new_strat0[node] = strat0[node];
+        } else {
+            w1.push(node);
+            new_strat1[node] = strat1[node];
         }
     }
 
@@ -231,9 +231,6 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat
 
     visited[node] = true;
 
-    if valuations[node] == Valuation::Infinite {
-        return;
-    }
 
     match valuations[node] {
         Valuation::Infinite => {},
@@ -269,7 +266,13 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat
 fn is_positive(valuation: &Valuation) -> bool {
     match valuation {
         Valuation::Infinite => true,
-        Valuation::Finite(vec) => vec.iter().any(|&x| x > 0),
+        Valuation::Finite(vec) => {
+            let last_non_zero = vec.iter().rev().find(|&&x| x != 0);
+            match last_non_zero {
+                Some(&x) => x % 2 == 0,
+                None => false,
+            }
+        }
     }
 }
 
