@@ -98,6 +98,7 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
         "fpi" => fpi(input, output),
         "tl" => tl(input, output),
         "spm" => spm(input, output),
+        "si" => si(input, output),
         _ => {
             eprintln!("Algorithm '{}' not implemented yet.", algorithm);
             std::process::exit(2);
@@ -276,6 +277,10 @@ fn tl(input: &str, output_file: &str) {
 
 fn spm(input: &str, output_file: &str) {
     run_algorithm(input, output_file, run_spm, "Small Progress Measures Algorithm");
+}
+
+fn si(input: &str, output_file: &str) {
+    run_algorithm(input, output_file, run_si, "Strategy Improvement Algorithm");
 }
 
 fn solve_game(
