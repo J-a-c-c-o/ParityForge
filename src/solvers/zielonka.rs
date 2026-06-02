@@ -166,3 +166,67 @@ fn attract(
 
     (attractor.into_iter().collect(), strategy)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parity_game::ParityGameBuilder;
+
+
+    fn example_game() -> ParityGame {
+        let mut builder = ParityGameBuilder::new();
+        let builder = builder
+            .add_edge(0, 4)
+            .add_edge(4, 0)
+            .add_edge(7, 4)
+            .add_edge(1, 7)
+            .add_edge(4, 8)
+            .add_edge(8, 6)
+            .add_edge(7, 6)
+            .add_edge(2, 1)
+            .add_edge(2, 3)
+            .add_edge(3, 2)
+            .add_edge(3, 5)
+            .add_edge(5, 3)
+            .add_edge(5, 1)
+            .add_edge(1, 5)
+            .add_edge(6, 2)
+            .set_owner(0, 0)
+            .set_owner(1, 1)
+            .set_owner(2, 0)
+            .set_owner(3, 0)
+            .set_owner(4, 1)
+            .set_owner(5, 0)
+            .set_owner(6, 0)
+            .set_owner(7, 0)
+            .set_owner(8, 0)
+            .set_priority(0, 0)
+            .set_priority(1, 1)
+            .set_priority(2, 2)
+            .set_priority(3, 3)
+            .set_priority(4, 2)
+            .set_priority(5, 5)
+            .set_priority(6, 6)
+            .set_priority(7, 7)
+            .set_priority(8, 8);
+        
+        let game = builder.build();
+        game
+    }
+
+
+    #[test]
+    fn test_zielonka() {
+        let game = example_game();
+        let (w0, w1, strat0, strat1) = solve(&game, &vec![false; game.num_nodes()]);
+        println!("Winning set for player 0: {:?}", w0);
+        println!("Winning set for player 1: {:?}", w1);
+        println!("Strategy for player 0: {:?}", strat0);
+        println!("Strategy for player 1: {:?}", strat1);
+
+        panic!();
+    }
+
+    
+
+}
