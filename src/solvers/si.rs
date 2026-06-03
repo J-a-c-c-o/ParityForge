@@ -19,16 +19,15 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
     }
 
-    let mut halting_set: Vec<usize> = Vec::new();
+    let mut in_halting = vec![false; game.num_nodes()];
     for node in 0..game.num_nodes() {
         if game.get_priority(node) % 2 == 1 {
-            halting_set.push(node);
+            in_halting[node] = true;
         }
     }
 
         
     loop {
-        let in_halting = build_halting_map(game.num_nodes(), &halting_set);
         
         let mut sigma_changed = false;
         let mut h_changed = false;
@@ -36,7 +35,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
         loop {
             valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
-
             let mut tau_changed = false;
             for node in 0..game.num_nodes() {
                 if game.get_owner(node) == 1 {
@@ -45,9 +43,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                     let mut best_val = &valuations[current_succ];
 
                     for &succ in game.get_successors(node).iter() {
-                        if in_halting[succ] {
-                            continue;
-                        }
                         let succ_val = &valuations[succ];
                         if succ_val < best_val {
                             best_val = succ_val;
@@ -75,9 +70,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                 let mut best_val = &valuations[current_succ];
 
                 for &succ in game.get_successors(node).iter() {
-                    if in_halting[succ] {
-                        continue;
-                    }
                     let succ_val = &valuations[succ];
                     if succ_val > best_val {
                         best_val = succ_val;
@@ -92,22 +84,18 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             }
         }
 
-        halting_set.retain(|&node| {
-            if is_positive(&valuations[node]) {
+        for node in 0..game.num_nodes() {
+            if in_halting[node] && valuations[node] > Valuation::Finite(vec![0; game.get_max_priority() + 1]) {
+                in_halting[node] = false;
                 h_changed = true;
-                false 
-            } else {
-                true
             }
-        });
+        }
 
         if !sigma_changed && !h_changed {
             break;
         }
     }
     
-
-    let in_halting = build_halting_map(game.num_nodes(), &halting_set);
     let final_valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
 
     let mut w0 = Vec::new();
@@ -126,16 +114,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
     (w0, w1, new_strat0, new_strat1)
 }
-
-
-fn build_halting_map(node_count: usize, halting_set: &[usize]) -> Vec<bool> {
-    let mut in_halting = vec![false; node_count];
-    for &node in halting_set {
-        in_halting[node] = true;
-    }
-    in_halting
-}
-
 
 #[derive(Debug, Clone)]
 enum Valuation {
@@ -189,7 +167,7 @@ impl Ord for Valuation {
 
 
 fn compare_vec(vec1: &[usize], vec2: &[usize]) -> std::cmp::Ordering {
-    for (priority, (a, b)) in vec1.iter().zip(vec2.iter()).enumerate() {
+    for (priority, (a, b)) in vec1.iter().zip(vec2.iter()).enumerate().rev() {
         if a != b {
             if priority % 2 == 0 {
                 return a.cmp(b);
@@ -217,9 +195,6 @@ fn compute_all_valuations(game: &ParityGame, strat0: &[Option<usize>], strat1: &
     }
 
     while let Some(node) = nodes_with_no_successors.pop() {
-        if visited[node] {
-            continue;
-        }
         dfs_backwards(game, node, strat0, strat1, in_halting, &mut valuations, &mut visited);
     }
 
@@ -235,9 +210,6 @@ fn compute_all_valuations(game: &ParityGame, strat0: &[Option<usize>], strat1: &
 
 
 fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat1: &[Option<usize>], in_halting: &[bool], valuations: &mut [Valuation], visited: &mut [bool]) {
-    if visited[node] {
-        return;
-    }
 
     visited[node] = true;
 
@@ -271,21 +243,6 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat
 
     
 }
-
-
-fn is_positive(valuation: &Valuation) -> bool {
-    match valuation {
-        Valuation::Infinite => true,
-        Valuation::Finite(vec) => {
-            let last_non_zero = vec.iter().rev().find(|&&x| x != 0);
-            match last_non_zero {
-                Some(&x) => x % 2 == 0,
-                None => false,
-            }
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
