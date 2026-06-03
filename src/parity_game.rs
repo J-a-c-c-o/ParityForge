@@ -419,7 +419,6 @@ impl ParityGameBuilder {
 
     pub fn build(&self) -> ParityGame {
         let mut game = ParityGame::new(self.nodes);
-        // Remove self loops
 
         for (node, priority) in &self.priorities {
             game.set_priority(*node, *priority);
@@ -432,9 +431,6 @@ impl ParityGameBuilder {
         }
 
         for (from, to) in &self.edges {
-            if from == to && ((game.get_owner(*from) == 1 && game.get_priority(*from) % 2 == 0) || (game.get_owner(*from) == 0 && game.get_priority(*from) % 2 == 1)) {
-                continue;
-            }
             game.add_edge(*from, *to);
         }
 
