@@ -27,6 +27,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     }
 
     let mut valuations  =vec![Valuation::Finite(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
+    let mut previous_valuations;
 
         
     loop {
@@ -36,18 +37,14 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         
 
         loop {
-            let valuation = compute_all_valuations(game, &strat0, &strat1, &in_halting);
-            for node in 0..game.num_nodes() {
-                if valuation[node] > valuations[node] {
-                    valuations[node] = valuation[node].clone();
-                }
-            }
+            previous_valuations = valuations;
+            valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
             let mut tau_changed = false;
             for node in 0..game.num_nodes() {
                 if game.get_owner(node) == 1 {
                     let current_succ = strat1[node].unwrap();
                     let mut best_succ = current_succ;
-                    let mut best_val = &valuations[current_succ];
+                    let mut best_val = &previous_valuations[current_succ];
 
                     for &succ in game.get_successors(node).iter() {
                         let succ_val = &valuations[succ];
@@ -74,7 +71,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             if game.get_owner(node) == 0 {
                 let current_succ = strat0[node].unwrap();
                 let mut best_succ = current_succ;
-                let mut best_val = &valuations[current_succ];
+                let mut best_val = &previous_valuations[current_succ];
 
                 for &succ in game.get_successors(node).iter() {
                     let succ_val = &valuations[succ];
