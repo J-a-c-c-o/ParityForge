@@ -26,7 +26,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
     }
 
-    let mut valuations  =vec![Valuation::Finite(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
+    let mut valuations;
 
         
     loop {
