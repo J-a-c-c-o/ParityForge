@@ -19,6 +19,38 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
     }
 
+    for node in 0..game.num_nodes() {
+        if game.get_owner(node) == 1 {
+            for &succ in game.get_successors(node).iter() {
+                let tmp_strat1 = {
+                    let mut tmp = strat1.clone();
+                    tmp[node] = Some(succ);
+                    tmp
+                };
+                if lead_to_cycle(game, &strat0, &tmp_strat1, node) != Some(0) {
+                    strat1[node] = Some(succ);
+                    break;
+                }
+            }
+        }
+    }
+
+    for node in 0..game.num_nodes() {
+        if game.get_owner(node) == 0 {
+            for &succ in game.get_successors(node).iter() {
+                let tmp_strat0 = {
+                    let mut tmp = strat0.clone();
+                    tmp[node] = Some(succ);
+                    tmp
+                };
+                if lead_to_cycle(game, &tmp_strat0, &strat1, node) != Some(1) {
+                    strat0[node] = Some(succ);
+                    break;
+                }
+            }
+        }
+    }
+
     let mut in_halting = vec![false; game.num_nodes()];
     for node in 0..game.num_nodes() {
         if game.get_priority(node) % 2 == 1 {
@@ -32,6 +64,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     loop {
         loop {
             valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
+            println!("Valuations: {:?}", valuations);
             let mut tau_changed = false;
             for node in 0..game.num_nodes() {
                 if game.get_owner(node) == 1 {
@@ -41,7 +74,13 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
                     for &succ in game.get_successors(node).iter() {
                         let succ_val = &valuations[succ];
-                        if succ_val < best_val {
+                        let tmp_strat1 = {
+                            let mut tmp = strat1.clone();
+                            tmp[node] = Some(succ);
+                            tmp
+                        };
+                        
+                        if succ_val < best_val && !(lead_to_cycle(game, &strat0, &tmp_strat1, node) == Some(0)) {
                             best_val = succ_val;
                             best_succ = succ;
                         }
@@ -71,7 +110,12 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
                 for &succ in game.get_successors(node).iter() {
                     let succ_val = &valuations[succ];
-                    if succ_val > best_val {
+                    let tmp_strat0 = {
+                        let mut tmp = strat0.clone();
+                        tmp[node] = Some(succ);
+                        tmp
+                    };
+                    if succ_val > best_val && !(lead_to_cycle(game, &tmp_strat0, &strat1, node) == Some(1)) {
                         best_val = succ_val;
                         best_succ = succ;
                     }
@@ -112,6 +156,28 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     }
 
     (w0, w1, new_strat0, new_strat1)
+}
+
+fn lead_to_cycle(game: &ParityGame, strat0: &[Option<usize>], strat1: &[Option<usize>], start: usize) -> Option<usize> {
+    let mut visited = vec![false; game.num_nodes()];
+    let mut current = start;
+    let mut highest_priority = game.get_priority(current);
+
+    while !visited[current] {
+        visited[current] = true;
+        highest_priority = highest_priority.max(game.get_priority(current));
+        current = if game.get_owner(current) == 0 {
+            strat0[current].unwrap()
+        } else {
+            strat1[current].unwrap()
+        };
+    }
+
+    if current == start {
+        return Some(highest_priority % 2);
+    }
+
+    None
 }
 
 #[derive(Debug, Clone)]
