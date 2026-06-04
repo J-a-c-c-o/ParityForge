@@ -38,7 +38,7 @@ fn solve(game: &ParityGame, alpha: usize) -> (Vec<usize>, Vec<Option<usize>>) {
 
     while let Some(v) = queue.pop() {
         let lift = lift(game, alpha, &measures, &bounds, v);
-        if &measures[v] < &lift {
+        if measures[v] < lift {
             measures[v] = lift;
             for &u in game.get_predecessors(v) {
                 queue.push(u);
@@ -61,7 +61,7 @@ fn solve(game: &ParityGame, alpha: usize) -> (Vec<usize>, Vec<Option<usize>>) {
         let priority = game.get_priority(v);
         for &u in game.get_successors(v) {
             let prog = prog(alpha, &bounds, &measures[u], priority);
-            if &prog == &measures[v] {
+            if prog == measures[v] {
                 strat[v] = Some(u);
                 break;
             }

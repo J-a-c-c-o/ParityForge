@@ -60,7 +60,7 @@ fn solve(
 
     let (a, strat_a) = attract(
         game,
-        &excluded,
+        excluded,
         &max_nodes,
         player,
         vec![None; game.num_nodes()],
@@ -78,7 +78,7 @@ fn solve(
 
     let (b, strat_b) = attract(
         game,
-        &excluded,
+        excluded,
         opponent_region,
         1 - player,
         opponent_strategy.clone(),
@@ -168,11 +168,10 @@ fn attract(
     }
 
     for &node in nodes_to_attract {
-        if !excluded[node] {
-            if attractor.insert(node) {
+        if !excluded[node]
+            && attractor.insert(node) {
                 queue.push_back(node);
             }
-        }
     }
 
     while let Some(current) = queue.pop_front() {

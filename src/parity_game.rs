@@ -110,7 +110,7 @@ impl ParityGame {
     pub fn remove_bad_self_loops(&mut self) {
         for node in 0..self.nodes {
             if self.successors[node].contains(&node)
-                && ((self.owners[node] == 1 && self.priorities[node] % 2 == 0)
+                && ((self.owners[node] == 1 && self.priorities[node].is_multiple_of(2))
                     || (self.owners[node] == 0 && self.priorities[node] % 2 == 1))
                 && self.successors[node].len() > 1
             {

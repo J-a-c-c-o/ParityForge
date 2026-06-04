@@ -305,11 +305,10 @@ fn compute_escapes(
     let mut escapes = HashSet::new();
     for &v in nodes {
         if game.get_owner(v) == player {
-            if let Some(succ) = strategy[v] {
-                if !in_nodes[succ] {
+            if let Some(succ) = strategy[v]
+                && !in_nodes[succ] {
                     escapes.insert(succ);
                 }
-            }
         } else {
             for &succ in game.get_successors(v) {
                 if !in_nodes[succ] {
