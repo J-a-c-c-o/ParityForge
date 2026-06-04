@@ -7,6 +7,7 @@ pub struct ParityGame {
     priorities: Vec<usize>,
     owners: Vec<usize>,
     labels: Vec<Option<String>>,
+    max_priority: usize,
 }
 
 struct TarjanFrame {
@@ -25,6 +26,7 @@ impl ParityGame {
             priorities: vec![0; nodes],
             owners: vec![0; nodes],
             labels: vec![None; nodes],
+            max_priority: 0,
         }
     }
 
@@ -35,6 +37,7 @@ impl ParityGame {
 
     fn set_priority(&mut self, node: usize, priority: usize) {
         self.priorities[node] = priority;
+        self.max_priority = max(self.max_priority, priority);
     }
 
     fn set_owner(&mut self, node: usize, owner: usize) {
@@ -89,7 +92,7 @@ impl ParityGame {
     }
 
     pub fn get_max_priority(&self) -> usize {
-        *self.priorities.iter().max().unwrap_or(&0)
+        self.max_priority
     }
 
     pub fn num_nodes(&self) -> usize {
@@ -115,6 +118,7 @@ impl Clone for ParityGame {
             owners: self.owners.clone(),
             labels: self.labels.clone(),
             predecessors: self.predecessors.clone(),
+            max_priority: self.max_priority,
         }
     }
 }

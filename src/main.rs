@@ -255,7 +255,7 @@ fn run_algorithm<Algo>(input_file: &str, output_file: &str, algorithm: Algo, alg
     if let Ok((winning_region0, winning_region1, strategy_0, strategy_1)) = result {
         let output = strat_to_sol(&game, &strategy_0, &strategy_1, &winning_region0, &winning_region1);
 
-        std::fs::write(&output_file, output).unwrap_or_else(|e| {
+        std::fs::write(output_file, output).unwrap_or_else(|e| {
             eprintln!("Error writing output file '{}': {}", output_file, e);
             std::process::exit(1);
         });
