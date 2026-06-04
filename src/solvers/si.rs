@@ -158,26 +158,51 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     (w0, w1, new_strat0, new_strat1)
 }
 
-fn lead_to_cycle(game: &ParityGame, strat0: &[Option<usize>], strat1: &[Option<usize>], start: usize) -> Option<usize> {
+fn lead_to_cycle(
+    game: &ParityGame,
+    strat0: &[Option<usize>],
+    strat1: &[Option<usize>],
+    start: usize
+) -> Option<usize> {
+
     let mut visited = vec![false; game.num_nodes()];
     let mut current = start;
-    let mut highest_priority = game.get_priority(current);
+
+    let mut trace = Vec::new();
 
     while !visited[current] {
         visited[current] = true;
-        highest_priority = highest_priority.max(game.get_priority(current));
+        trace.push(current);
+
+
         current = if game.get_owner(current) == 0 {
-            strat0[current].unwrap()
+            strat0[current]?
         } else {
-            strat1[current].unwrap()
+            strat1[current]?
         };
     }
 
-    if current == start {
-        return Some(highest_priority % 2);
+    let cycle_start = current;
+
+    let mut cycle_node = cycle_start;
+    let mut cycle_visited = std::collections::HashSet::new();
+    let mut cycle_max = game.get_priority(cycle_node);
+
+    loop {
+        if !cycle_visited.insert(cycle_node) {
+            break;
+        }
+
+        cycle_max = cycle_max.max(game.get_priority(cycle_node));
+
+        cycle_node = if game.get_owner(cycle_node) == 0 {
+            strat0[cycle_node]?
+        } else {
+            strat1[cycle_node]?
+        };
     }
 
-    None
+    Some(cycle_max % 2)
 }
 
 #[derive(Debug, Clone)]
