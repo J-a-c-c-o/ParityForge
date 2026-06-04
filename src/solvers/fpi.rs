@@ -1,12 +1,29 @@
 use crate::parity_game::ParityGame;
 
-pub fn run_fpi(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn run_fpi(
+    game: &ParityGame,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     Ok(solve(game))
 }
 
-fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+fn solve(
+    game: &ParityGame,
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     let highest_priority = game.get_max_priority();
-    
+
     let mut distractions = vec![false; game.num_nodes()];
     let mut frozen = vec![None; game.num_nodes()];
     let mut strat = vec![None; game.num_nodes()];
@@ -15,7 +32,7 @@ fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<
     while p <= highest_priority {
         let alpha = p % 2;
         let mut changed = false;
-        
+
         for v in game.get_nodes_with_priority(p) {
             if frozen[v].is_some() || distractions[v] {
                 continue;
@@ -37,7 +54,7 @@ fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<
                 if winner(game, v, &distractions) == 1 - alpha {
                     frozen[v] = Some(p);
                 } else {
-                    distractions[v] = false; 
+                    distractions[v] = false;
                 }
             }
             p = 0;
@@ -97,7 +114,6 @@ mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
 
-
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
         let builder = builder
@@ -134,11 +150,10 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
-
 
     #[test]
     fn test_tl() {
@@ -151,7 +166,4 @@ mod tests {
 
         panic!();
     }
-
-    
-
 }

@@ -1,5 +1,4 @@
-use crate::parity_game::{ParityGameBuilder, ParityGame};
-
+use crate::parity_game::{ParityGame, ParityGameBuilder};
 
 pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
     let mut builder = ParityGameBuilder::new();
@@ -17,11 +16,22 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
             return Err(format!("Invalid line format: '{}'", line));
         }
 
-        
-        let node_id: usize = parts[0].parse().map_err(|_| format!("Invalid node ID: '{}'", parts[0]))?;
-        let priority: usize = parts[1].parse().map_err(|_| format!("Invalid priority: '{}'", parts[1]))?;
-        let owner: usize = parts[2].parse().map_err(|_| format!("Invalid owner: '{}'", parts[2]))?;
-        let edges: Vec<usize> = parts[3].split(',').map(|s| s.parse().map_err(|_| format!("Invalid edge target: '{}'", s))).collect::<Result<_, _>>()?;
+        let node_id: usize = parts[0]
+            .parse()
+            .map_err(|_| format!("Invalid node ID: '{}'", parts[0]))?;
+        let priority: usize = parts[1]
+            .parse()
+            .map_err(|_| format!("Invalid priority: '{}'", parts[1]))?;
+        let owner: usize = parts[2]
+            .parse()
+            .map_err(|_| format!("Invalid owner: '{}'", parts[2]))?;
+        let edges: Vec<usize> = parts[3]
+            .split(',')
+            .map(|s| {
+                s.parse()
+                    .map_err(|_| format!("Invalid edge target: '{}'", s))
+            })
+            .collect::<Result<_, _>>()?;
         let label = if parts.len() > 4 {
             Some(parts[4..].join(" "))
         } else {
@@ -40,8 +50,6 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
 
     Ok(builder.build())
 }
-
-
 
 pub fn strat_to_sol(
     game: &ParityGame,
@@ -77,8 +85,17 @@ pub fn strat_to_sol(
     output
 }
 
-
-pub fn sol_to_strat(input: &str) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn sol_to_strat(
+    input: &str,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     let mut winning_region0 = Vec::new();
     let mut winning_region1 = Vec::new();
     let mut strategy0 = Vec::new();
@@ -97,8 +114,12 @@ pub fn sol_to_strat(input: &str) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<u
             return Err(format!("Invalid line format: '{}'", line));
         }
 
-        let node_id: usize = parts[0].parse().map_err(|_| format!("Invalid node ID: '{}'", parts[0]))?;
-        let owner: usize = parts[1].parse().map_err(|_| format!("Invalid owner: '{}'", parts[1]))?;
+        let node_id: usize = parts[0]
+            .parse()
+            .map_err(|_| format!("Invalid node ID: '{}'", parts[0]))?;
+        let owner: usize = parts[1]
+            .parse()
+            .map_err(|_| format!("Invalid owner: '{}'", parts[1]))?;
 
         if strategy0.len() <= node_id {
             strategy0.resize(node_id + 1, None);
@@ -110,7 +131,9 @@ pub fn sol_to_strat(input: &str) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<u
         if owner == 0 {
             winning_region0.push(node_id);
             if parts.len() > 2 {
-                let target: usize = parts[2].parse().map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
+                let target: usize = parts[2]
+                    .parse()
+                    .map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
                 strategy0[node_id] = Some(target);
             } else {
                 strategy0[node_id] = None;
@@ -118,7 +141,9 @@ pub fn sol_to_strat(input: &str) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<u
         } else if owner == 1 {
             winning_region1.push(node_id);
             if parts.len() > 2 {
-                let target: usize = parts[2].parse().map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
+                let target: usize = parts[2]
+                    .parse()
+                    .map_err(|_| format!("Invalid strategy target: '{}'", parts[2]))?;
                 strategy1[node_id] = Some(target);
             } else {
                 strategy1[node_id] = None;

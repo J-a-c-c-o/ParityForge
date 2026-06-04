@@ -1,15 +1,31 @@
 use crate::parity_game::ParityGame;
 
-pub fn run_si(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn run_si(
+    game: &ParityGame,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     Ok(solve(game))
 }
 
-pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
-
+pub fn solve(
+    game: &ParityGame,
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     let mut strategy = vec![0; game.num_nodes()];
     let mut halt = vec![false; game.num_nodes()];
-    let mut valuations = vec![Valuation::Val(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
-
+    let mut valuations =
+        vec![Valuation::Val(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
 
     for i in 0..game.num_nodes() {
         strategy[i] = *game.get_successors(i).first().unwrap();
@@ -18,14 +34,12 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
     }
 
-    
-
     loop {
         loop {
             compute_vals(game, &strategy, &halt, &mut valuations);
 
             let odd_changes = switch_strategy(1, game, &mut strategy, &halt, &valuations);
-            
+
             if !odd_changes {
                 break;
             }
@@ -38,7 +52,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         }
 
         let mut even_changes = switch_strategy(0, game, &mut strategy, &halt, &valuations);
-        
+
         for (i, halted) in halt.iter_mut().enumerate() {
             if *halted && compare(None, Some(i), &valuations) {
                 *halted = false;
@@ -80,15 +94,20 @@ enum Valuation {
     Val(Vec<usize>),
 }
 
-
 fn compare(a: Option<usize>, b: Option<usize>, val: &[Valuation]) -> bool {
-    if a == b { return false; }
-    
-    let a_top = a.is_some_and( |node| val[node] == Valuation::Win || val[node] == Valuation::Top);
-    let b_top = b.is_some_and( |node| val[node] == Valuation::Win || val[node] == Valuation::Top);
-    
-    if a_top { return false; }
-    if b_top { return true; }
+    if a == b {
+        return false;
+    }
+
+    let a_top = a.is_some_and(|node| val[node] == Valuation::Win || val[node] == Valuation::Top);
+    let b_top = b.is_some_and(|node| val[node] == Valuation::Win || val[node] == Valuation::Top);
+
+    if a_top {
+        return false;
+    }
+    if b_top {
+        return true;
+    }
 
     let lenght = match val.iter().find(|v| matches!(v, Valuation::Val(_))) {
         Some(Valuation::Val(v)) => v.len(),
@@ -110,7 +129,9 @@ fn compare(a: Option<usize>, b: Option<usize>, val: &[Valuation]) -> bool {
             },
             None => 0,
         };
-        if ai == bi { continue; }
+        if ai == bi {
+            continue;
+        }
         if i % 2 == 1 {
             return ai > bi;
         } else {
@@ -131,8 +152,8 @@ fn compute_vals(
     let mut q = Vec::new();
 
     for i in 0..game.num_nodes() {
-        if valuations[i] == Valuation::Win { 
-            continue; 
+        if valuations[i] == Valuation::Win {
+            continue;
         }
         let s: usize = strategy[i];
         if halt[s] {
@@ -149,12 +170,14 @@ fn compute_vals(
     while let Some(v) = q.pop() {
         let s = strategy[v];
         let mut new_val = vec![0; game.get_max_priority() + 1];
-        
-        if !halt[s] && let Valuation::Val(ref s_val) = valuations[s] {
+
+        if !halt[s]
+            && let Valuation::Val(ref s_val) = valuations[s]
+        {
             new_val.copy_from_slice(s_val);
         }
         new_val[game.get_priority(v)] += 1;
-        
+
         valuations[v] = Valuation::Val(new_val.clone());
 
         let mut from_opt = first_in[v];
@@ -183,9 +206,15 @@ fn switch_strategy(
         let mut changed = false;
 
         for &to in game.get_successors(i) {
-            if to == cur_strat { continue; }
+            if to == cur_strat {
+                continue;
+            }
 
-            let cur_node = if halt[cur_strat] { None } else { Some(cur_strat) };
+            let cur_node = if halt[cur_strat] {
+                None
+            } else {
+                Some(cur_strat)
+            };
             let to_node = if halt[to] { None } else { Some(to) };
 
             if pl == 0 {

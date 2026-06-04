@@ -1,6 +1,5 @@
 use crate::parity_game::ParityGame;
 
-
 pub fn verify_solution(
     game: &ParityGame,
     w0: &[usize],
@@ -59,14 +58,20 @@ pub fn verify_solution(
     for scc in bottoms0 {
         let max_prio = scc.iter().map(|&v| game.get_priority(v)).max().unwrap_or(0);
         if max_prio % 2 == 1 {
-            return Err(format!("Bottom SCC {:?} in W0 has odd max priority {}", scc, max_prio));
+            return Err(format!(
+                "Bottom SCC {:?} in W0 has odd max priority {}",
+                scc, max_prio
+            ));
         }
     }
 
     for scc in bottoms1 {
         let max_prio = scc.iter().map(|&v| game.get_priority(v)).max().unwrap_or(0);
         if max_prio % 2 == 0 {
-            return Err(format!("Bottom SCC {:?} in W1 has even max priority {}", scc, max_prio));
+            return Err(format!(
+                "Bottom SCC {:?} in W1 has even max priority {}",
+                scc, max_prio
+            ));
         }
     }
 
@@ -84,9 +89,8 @@ fn validate_player_witness(
             continue;
         }
 
-        let succ = strategy[v].ok_or_else(|| {
-            format!("Player {}'s strategy is not defined at node {}", player, v)
-        })?;
+        let succ = strategy[v]
+            .ok_or_else(|| format!("Player {}'s strategy is not defined at node {}", player, v))?;
 
         if !game.get_successors(v).contains(&succ) {
             return Err(format!(

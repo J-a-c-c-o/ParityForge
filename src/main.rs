@@ -3,13 +3,13 @@ mod pg_parser;
 mod solvers;
 mod verifier;
 
-use clap::{Parser, Subcommand};
-use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol};
-use crate::solvers::{run_fpi, run_tl, run_zielonka, run_spm, run_si};
 use crate::parity_game::{ParityGame, ParityGameBuilder};
+use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol};
+use crate::solvers::{run_fpi, run_si, run_spm, run_tl, run_zielonka};
 use crate::verifier::verify_solution;
-use std::path::{Path, PathBuf};
+use clap::{Parser, Subcommand};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// ParityTool CLI
 #[derive(Parser)]
@@ -31,7 +31,7 @@ enum Commands {
 
         /// Algorithm name to use
         #[arg(long, default_value = "default")]
-        algorithm: String,        
+        algorithm: String,
     },
 
     /// Run one or more algorithms over every .pg file in a file or folder
@@ -40,7 +40,7 @@ enum Commands {
         input: Option<String>,
 
         /// Count of random games to generate and test; ignored if input is a file or directory
-        #[arg(long= "count")]
+        #[arg(long = "count")]
         random_count: Option<usize>,
 
         /// Number of nodes for random games; ignored if input is a file or directory
@@ -77,18 +77,37 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Solve { algorithm, input, output } => {
+        Commands::Solve {
+            algorithm,
+            input,
+            output,
+        } => {
             run_solve_command(&input, &output, &algorithm);
         }
 
-        Commands::Test { input, random_count, random_nodes, max_edges, max_prio, algorithms, seed } => {
-            run_test_command(input, random_count, random_nodes, max_edges, max_prio, algorithms, seed);
+        Commands::Test {
+            input,
+            random_count,
+            random_nodes,
+            max_edges,
+            max_prio,
+            algorithms,
+            seed,
+        } => {
+            run_test_command(
+                input,
+                random_count,
+                random_nodes,
+                max_edges,
+                max_prio,
+                algorithms,
+                seed,
+            );
         }
 
         Commands::Verify { game, solution } => {
             run_verify_command(game, solution);
         }
-        
     }
 }
 
@@ -106,9 +125,17 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
     }
 }
 
-fn run_test_command(input: Option<String>, random_count: Option<usize>, random_nodes: Option<usize>, max_edges: Option<usize>, max_prio: Option<usize>, algorithms: Vec<String>, seed: Option<u64>) {
+fn run_test_command(
+    input: Option<String>,
+    random_count: Option<usize>,
+    random_nodes: Option<usize>,
+    max_edges: Option<usize>,
+    max_prio: Option<usize>,
+    algorithms: Vec<String>,
+    seed: Option<u64>,
+) {
     let algorithms = if algorithms.is_empty() {
-            vec![
+        vec![
             String::from("zlk"),
             String::from("fpi"),
             String::from("tl"),
@@ -133,7 +160,6 @@ fn run_test_command(input: Option<String>, random_count: Option<usize>, random_n
             std::process::exit(1);
         }
 
-        
         for path in input_paths {
             let input_text = std::fs::read_to_string(&path).unwrap_or_else(|e| {
                 eprintln!("Error reading file '{}': {}", path.display(), e);
@@ -149,14 +175,28 @@ fn run_test_command(input: Option<String>, random_count: Option<usize>, random_n
                 let start_time = std::time::Instant::now();
                 let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
                 let duration = start_time.elapsed();
-                combined_times.entry(algorithm.clone()).and_modify(|d| *d += duration).or_insert(duration);
+                combined_times
+                    .entry(algorithm.clone())
+                    .and_modify(|d| *d += duration)
+                    .or_insert(duration);
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
-                        println!("[ok] {} via {} in {:.2?}", path.display(), algorithm, duration);
+                        println!(
+                            "[ok] {} via {} in {:.2?}",
+                            path.display(),
+                            algorithm,
+                            duration
+                        );
                     }
                     Err(e) => {
                         failures += 1;
-                        eprintln!("[fail] {} via {}: {} in {:.2?}", path.display(), algorithm, e, duration);
+                        eprintln!(
+                            "[fail] {} via {}: {} in {:.2?}",
+                            path.display(),
+                            algorithm,
+                            e,
+                            duration
+                        );
                     }
                 }
             }
@@ -168,24 +208,39 @@ fn run_test_command(input: Option<String>, random_count: Option<usize>, random_n
         let max_prio = max_prio.unwrap_or(nodes);
 
         for i in 0..count {
-            let game = ParityGameBuilder::new().random_game(nodes, max_edges, max_prio, seed).build();
+            let game = ParityGameBuilder::new()
+                .random_game(nodes, max_edges, max_prio, seed)
+                .build();
             for algorithm in &algorithms {
                 let start_time = std::time::Instant::now();
                 let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
                 let duration = start_time.elapsed();
-                combined_times.entry(algorithm.clone()).and_modify(|d| *d += duration).or_insert(duration);
+                combined_times
+                    .entry(algorithm.clone())
+                    .and_modify(|d| *d += duration)
+                    .or_insert(duration);
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
-                        println!("[ok] random game #{} via {} in {:.2?}", i + 1, algorithm, duration);
+                        println!(
+                            "[ok] random game #{} via {} in {:.2?}",
+                            i + 1,
+                            algorithm,
+                            duration
+                        );
                     }
                     Err(e) => {
                         failures += 1;
-                        eprintln!("[fail] random game #{} via {}: {} in {:.2?}", i + 1, algorithm, e, duration);
+                        eprintln!(
+                            "[fail] random game #{} via {}: {} in {:.2?}",
+                            i + 1,
+                            algorithm,
+                            e,
+                            duration
+                        );
                     }
                 }
             }
         }
-
     }
 
     println!("Combined times:");
@@ -195,7 +250,7 @@ fn run_test_command(input: Option<String>, random_count: Option<usize>, random_n
 
     if failures > 0 {
         eprintln!("{} test run(s) failed", failures);
-        
+
         std::process::exit(1);
     }
 
@@ -224,17 +279,33 @@ fn run_verify_command(game_file: String, solution_file: String) {
     });
 
     match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
-        Ok(()) => println!("Solution in '{}' is valid for game '{}'", solution_file, game_file),
+        Ok(()) => println!(
+            "Solution in '{}' is valid for game '{}'",
+            solution_file, game_file
+        ),
         Err(e) => {
-            eprintln!("Solution in '{}' is invalid for game '{}': {}", solution_file, game_file, e);
+            eprintln!(
+                "Solution in '{}' is invalid for game '{}': {}",
+                solution_file, game_file, e
+            );
             std::process::exit(1);
         }
     }
 }
 
-
 fn run_algorithm<Algo>(input_file: &str, output_file: &str, algorithm: Algo, alg_name: &str)
-    where Algo: Fn(&ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String>
+where
+    Algo: Fn(
+        &ParityGame,
+    ) -> Result<
+        (
+            Vec<usize>,
+            Vec<usize>,
+            Vec<Option<usize>>,
+            Vec<Option<usize>>,
+        ),
+        String,
+    >,
 {
     let input = std::fs::read_to_string(input_file).unwrap_or_else(|e| {
         eprintln!("Error reading file '{}': {}", input_file, e);
@@ -253,7 +324,13 @@ fn run_algorithm<Algo>(input_file: &str, output_file: &str, algorithm: Algo, alg
     }
 
     if let Ok((winning_region0, winning_region1, strategy_0, strategy_1)) = result {
-        let output = strat_to_sol(&game, &strategy_0, &strategy_1, &winning_region0, &winning_region1);
+        let output = strat_to_sol(
+            &game,
+            &strategy_0,
+            &strategy_1,
+            &winning_region0,
+            &winning_region1,
+        );
 
         std::fs::write(output_file, output).unwrap_or_else(|e| {
             eprintln!("Error writing output file '{}': {}", output_file, e);
@@ -264,11 +341,21 @@ fn run_algorithm<Algo>(input_file: &str, output_file: &str, algorithm: Algo, alg
 }
 
 fn zielonka(input: &str, output_file: &str) {
-    run_algorithm(input, output_file, run_zielonka, "Zielonka's Recursive Algorithm");
+    run_algorithm(
+        input,
+        output_file,
+        run_zielonka,
+        "Zielonka's Recursive Algorithm",
+    );
 }
 
 fn fpi(input: &str, output_file: &str) {
-    run_algorithm(input, output_file, run_fpi, "Fixed-Point Iteration Algorithm");
+    run_algorithm(
+        input,
+        output_file,
+        run_fpi,
+        "Fixed-Point Iteration Algorithm",
+    );
 }
 
 fn tl(input: &str, output_file: &str) {
@@ -276,7 +363,12 @@ fn tl(input: &str, output_file: &str) {
 }
 
 fn spm(input: &str, output_file: &str) {
-    run_algorithm(input, output_file, run_spm, "Small Progress Measures Algorithm");
+    run_algorithm(
+        input,
+        output_file,
+        run_spm,
+        "Small Progress Measures Algorithm",
+    );
 }
 
 fn si(input: &str, output_file: &str) {
@@ -286,11 +378,20 @@ fn si(input: &str, output_file: &str) {
 fn solve_game(
     game: &ParityGame,
     algorithm: &str,
-) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     match algorithm {
-        "default" | "zlk" => run_zielonka(game).unwrap_or_else(|e| exit_algorithm_error("Zielonka's algorithm", &e)),
+        "default" | "zlk" => {
+            run_zielonka(game).unwrap_or_else(|e| exit_algorithm_error("Zielonka's algorithm", &e))
+        }
         "fpi" => run_fpi(game).unwrap_or_else(|e| exit_algorithm_error("FPI algorithm", &e)),
-        "tl" => run_tl(game).unwrap_or_else(|e| exit_algorithm_error("Tangle Learning algorithm", &e)),
+        "tl" => {
+            run_tl(game).unwrap_or_else(|e| exit_algorithm_error("Tangle Learning algorithm", &e))
+        }
         "spm" => run_spm(game).unwrap_or_else(|e| exit_algorithm_error("SPM algorithm", &e)),
         "si" => run_si(game).unwrap_or_else(|e| exit_algorithm_error("SI algorithm", &e)),
         _ => {
@@ -306,7 +407,8 @@ fn exit_algorithm_error(algorithm_name: &str, error: &str) -> ! {
 }
 
 fn collect_pg_inputs(path: &Path) -> Result<Vec<PathBuf>, String> {
-    let metadata = std::fs::metadata(path).map_err(|e| format!("Error reading '{}': {}", path.display(), e))?;
+    let metadata = std::fs::metadata(path)
+        .map_err(|e| format!("Error reading '{}': {}", path.display(), e))?;
     let mut files = Vec::new();
 
     if metadata.is_file() {
@@ -322,14 +424,27 @@ fn collect_pg_inputs(path: &Path) -> Result<Vec<PathBuf>, String> {
         return Ok(files);
     }
 
-    Err(format!("'{}' is neither a file nor a directory", path.display()))
+    Err(format!(
+        "'{}' is neither a file nor a directory",
+        path.display()
+    ))
 }
 
 fn collect_pg_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
-    for entry in std::fs::read_dir(dir).map_err(|e| format!("Error reading directory '{}': {}", dir.display(), e))? {
-        let entry = entry.map_err(|e| format!("Error reading directory entry in '{}': {}", dir.display(), e))?;
+    for entry in std::fs::read_dir(dir)
+        .map_err(|e| format!("Error reading directory '{}': {}", dir.display(), e))?
+    {
+        let entry = entry.map_err(|e| {
+            format!(
+                "Error reading directory entry in '{}': {}",
+                dir.display(),
+                e
+            )
+        })?;
         let path = entry.path();
-        let metadata = entry.metadata().map_err(|e| format!("Error reading metadata for '{}': {}", path.display(), e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| format!("Error reading metadata for '{}': {}", path.display(), e))?;
 
         if metadata.is_dir() {
             collect_pg_files_recursive(&path, files)?;
@@ -342,15 +457,15 @@ fn collect_pg_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()
 }
 
 fn is_pg_file(path: &Path) -> bool {
-    path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("pg"))
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pg"))
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
-
 
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
@@ -388,11 +503,10 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
-
 
     #[test]
     fn test_solve_si() {
@@ -408,12 +522,9 @@ mod tests {
             Ok(()) => println!("SI solution is valid"),
             Err(e) => panic!("SI solution is invalid: {}", e),
         }
-        
+
         // print to file /tmp/si_solution.txt for debugging
         let output = strat_to_sol(&game, &strat0, &strat1, &w0, &w1);
         std::fs::write("./tmp/si_solution.txt", output).unwrap();
     }
-
-    
-
 }

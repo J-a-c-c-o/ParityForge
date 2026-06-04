@@ -4,13 +4,26 @@ use std::collections::{HashSet, VecDeque};
 
 pub fn run_tl(
     game: &ParityGame,
-) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     Ok(tangle_learning(game))
 }
 
 fn tangle_learning(
     game: &ParityGame,
-) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     let nodes = game.num_nodes();
     let mut in_game = vec![true; nodes];
     let mut winner: Vec<Option<usize>> = vec![None; nodes];
@@ -62,7 +75,11 @@ fn tangle_learning(
                 merge_strategy(&mut sigma, &t.strategy, player, game);
             }
 
-            let escape_map = if player == 0 { &escape_map0 } else { &escape_map1 };
+            let escape_map = if player == 0 {
+                &escape_map0
+            } else {
+                &escape_map1
+            };
             let (z_plus, sigma_plus) = tangle_attract(
                 game,
                 &tangles,
@@ -218,7 +235,11 @@ fn tangle_attract(
             }
 
             for (idx, entry) in tangle.strategy.iter().enumerate() {
-                if in_z[idx] && entry.is_some() && sigma[idx].is_none() && game.get_owner(idx) == player {
+                if in_z[idx]
+                    && entry.is_some()
+                    && sigma[idx].is_none()
+                    && game.get_owner(idx) == player
+                {
                     sigma[idx] = *entry;
                 }
             }
@@ -301,11 +322,7 @@ fn compute_escapes(
     escapes.into_iter().collect()
 }
 
-fn build_escape_map(
-    nodes: usize,
-    tangles: &[Tangle],
-    player: usize,
-) -> Vec<Vec<usize>> {
+fn build_escape_map(nodes: usize, tangles: &[Tangle], player: usize) -> Vec<Vec<usize>> {
     let mut map = vec![Vec::new(); nodes];
     for (idx, t) in tangles.iter().enumerate() {
         if t.player != player {
@@ -358,7 +375,6 @@ fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize) -> 
 }
 
 fn highest_priority(game: &ParityGame, in_game: &[bool]) -> (usize, usize) {
-
     let max_prio = game
         .get_nodes()
         .into_iter()
@@ -366,7 +382,7 @@ fn highest_priority(game: &ParityGame, in_game: &[bool]) -> (usize, usize) {
         .map(|v| game.get_priority(v))
         .max()
         .unwrap_or(0);
-        
+
     (max_prio, max_prio % 2)
 }
 
@@ -380,7 +396,12 @@ fn nodes_with_priority(game: &ParityGame, in_game: &[bool], prio: usize) -> Vec<
 fn zielonka_fallback(
     game: &ParityGame,
     in_game: &[bool],
-) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     let mut excluded = vec![true; game.num_nodes()];
     for v in 0..game.num_nodes() {
         if in_game[v] {
@@ -400,12 +421,10 @@ struct Tangle {
     escapes: Vec<usize>,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
-
 
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
@@ -443,11 +462,10 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
-
 
     #[test]
     fn test_tl() {
@@ -460,7 +478,4 @@ mod tests {
 
         panic!();
     }
-
-    
-
 }

@@ -1,17 +1,42 @@
 use crate::parity_game::ParityGame;
 use std::collections::{HashSet, VecDeque};
 
-pub fn run_zielonka(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn run_zielonka(
+    game: &ParityGame,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     let excluded = vec![false; game.num_nodes()];
     Ok(solve(game, &excluded))
 }
 
-pub fn zielonka_solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
-     solve(game, excluded)
+pub fn zielonka_solve(
+    game: &ParityGame,
+    excluded: &[bool],
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
+    solve(game, excluded)
 }
 
-
-fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+fn solve(
+    game: &ParityGame,
+    excluded: &[bool],
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     if excluded.iter().all(|&is_excluded| is_excluded) {
         let empty = vec![None; game.num_nodes()];
         return (vec![], vec![], empty.clone(), empty);
@@ -33,7 +58,13 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
         .filter(|v| !excluded[*v])
         .collect();
 
-    let (a, strat_a) = attract(game, &excluded, &max_nodes, player, vec![None; game.num_nodes()]);
+    let (a, strat_a) = attract(
+        game,
+        &excluded,
+        &max_nodes,
+        player,
+        vec![None; game.num_nodes()],
+    );
 
     let mut excluded_a = excluded.to_vec();
     for node in &a {
@@ -45,8 +76,14 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
     let opponent_region = if player == 0 { &w1 } else { &w0 };
     let opponent_strategy = if player == 0 { &strat_w1 } else { &strat_w0 };
 
-    let (b, strat_b) = attract(game, &excluded, opponent_region, 1 - player, opponent_strategy.clone());
-    
+    let (b, strat_b) = attract(
+        game,
+        &excluded,
+        opponent_region,
+        1 - player,
+        opponent_strategy.clone(),
+    );
+
     let mut b_sorted = b.clone();
     b_sorted.sort_unstable();
     let mut opp_sorted = opponent_region.clone();
@@ -64,7 +101,6 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
             let pick_strat = pick(game, &max_nodes, &w1);
             merge_strategy(&mut strat_w1, &pick_strat);
         }
-
 
         (w0, w1, strat_w0, strat_w1)
     } else {
@@ -87,7 +123,6 @@ fn solve(game: &ParityGame, excluded: &[bool]) -> (Vec<usize>, Vec<usize>, Vec<O
     }
 }
 
-
 fn pick(game: &ParityGame, max_nodes: &[usize], winning_region: &[usize]) -> Vec<Option<usize>> {
     let mut strategies = vec![None; game.num_nodes()];
     for &node in max_nodes {
@@ -109,13 +144,12 @@ fn merge_strategy(target: &mut [Option<usize>], source: &[Option<usize>]) {
     }
 }
 
-
 fn attract(
-    game: &ParityGame, 
-    excluded: &[bool], 
-    nodes_to_attract: &[usize], 
+    game: &ParityGame,
+    excluded: &[bool],
+    nodes_to_attract: &[usize],
     player: usize,
-    mut strategy: Vec<Option<usize>>
+    mut strategy: Vec<Option<usize>>,
 ) -> (Vec<usize>, Vec<Option<usize>>) {
     let mut attractor = HashSet::new();
     let mut queue = VecDeque::new();
@@ -124,7 +158,8 @@ fn attract(
 
     for node in game.get_nodes() {
         if !excluded[node] && game.get_owner(node) == 1 - player {
-            let valid_edges_count = game.get_edges(node)
+            let valid_edges_count = game
+                .get_edges(node)
                 .iter()
                 .filter(|target| !excluded[**target])
                 .count();
@@ -172,7 +207,6 @@ mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
 
-
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
         let builder = builder
@@ -209,11 +243,10 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
-
 
     #[test]
     fn test_zielonka() {
@@ -226,7 +259,4 @@ mod tests {
 
         panic!();
     }
-
-    
-
 }

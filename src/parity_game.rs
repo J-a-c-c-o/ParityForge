@@ -77,7 +77,11 @@ impl ParityGame {
     }
 
     pub fn get_nodes_with_priority(&self, priority: usize) -> Vec<usize> {
-        self.priorities.iter().enumerate().filter_map(|(node, &p)| if p == priority { Some(node) } else { None }).collect()
+        self.priorities
+            .iter()
+            .enumerate()
+            .filter_map(|(node, &p)| if p == priority { Some(node) } else { None })
+            .collect()
     }
 
     pub fn get_nodes(&self) -> Vec<usize> {
@@ -88,7 +92,11 @@ impl ParityGame {
     where
         F: Fn(usize) -> bool,
     {
-        self.priorities.iter().enumerate().filter_map(|(node, &p)| if eval(p) { Some(node) } else { None }).collect()
+        self.priorities
+            .iter()
+            .enumerate()
+            .filter_map(|(node, &p)| if eval(p) { Some(node) } else { None })
+            .collect()
     }
 
     pub fn get_max_priority(&self) -> usize {
@@ -101,13 +109,17 @@ impl ParityGame {
 
     pub fn remove_bad_self_loops(&mut self) {
         for node in 0..self.nodes {
-            if self.successors[node].contains(&node) && ((self.owners[node] == 1 && self.priorities[node] % 2 == 0) || (self.owners[node] == 0 && self.priorities[node] % 2 == 1)) && self.successors[node].len() > 1 {
+            if self.successors[node].contains(&node)
+                && ((self.owners[node] == 1 && self.priorities[node] % 2 == 0)
+                    || (self.owners[node] == 0 && self.priorities[node] % 2 == 1))
+                && self.successors[node].len() > 1
+            {
                 self.successors[node].retain(|&succ| succ != node);
                 self.predecessors[node].retain(|&pred| pred != node);
             }
         }
     }
-} 
+}
 
 impl Clone for ParityGame {
     fn clone(&self) -> Self {
@@ -222,8 +234,7 @@ impl ParityGame {
                     call_stack.pop();
 
                     if let Some(parent) = call_stack.last() {
-                        lowlink[parent.node] =
-                            std::cmp::min(lowlink[parent.node], lowlink[node]);
+                        lowlink[parent.node] = std::cmp::min(lowlink[parent.node], lowlink[node]);
                     }
                 }
             }
@@ -324,10 +335,6 @@ impl ParityGame {
     }
 }
 
-
-
-
-
 pub struct ParityGameBuilder {
     nodes: usize,
     edges: Vec<(usize, usize)>,
@@ -370,12 +377,17 @@ impl ParityGameBuilder {
         self.labels.push((node, label));
         self.nodes = max(self.nodes, node + 1);
         self
-    }    
+    }
 
-
-    pub fn random_game(&mut self, size: usize, max_edges: usize, max_priority: usize, seed: Option<u64>) -> &mut Self {
+    pub fn random_game(
+        &mut self,
+        size: usize,
+        max_edges: usize,
+        max_priority: usize,
+        seed: Option<u64>,
+    ) -> &mut Self {
         use rand::rngs::StdRng;
-        use rand::{SeedableRng, RngExt, rng};
+        use rand::{RngExt, SeedableRng, rng};
         use std::collections::HashSet;
 
         let mut rng = match seed {
@@ -429,7 +441,6 @@ impl ParityGameBuilder {
         self
     }
 
-
     pub fn build(&self) -> ParityGame {
         let mut game = ParityGame::new(self.nodes);
 
@@ -448,7 +459,7 @@ impl ParityGameBuilder {
         }
 
         game.remove_bad_self_loops();
-        
+
         game
     }
 }

@@ -2,7 +2,17 @@ use crate::parity_game::ParityGame;
 
 use std::cmp::Ordering;
 
-pub fn run_spm(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn run_spm(
+    game: &ParityGame,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     let (w0, strat0) = solve(game, 0);
     let (w1, strat1) = solve(game, 1);
     Ok((w0, w1, strat0, strat1))
@@ -58,13 +68,16 @@ fn solve(game: &ParityGame, alpha: usize) -> (Vec<usize>, Vec<Option<usize>>) {
         }
     }
 
-
     (w, strat)
 }
 
-
-
-fn lift(game: &ParityGame, alpha: usize, measures: &[Measure], bounds: &[usize], v: usize) -> Measure {
+fn lift(
+    game: &ParityGame,
+    alpha: usize,
+    measures: &[Measure],
+    bounds: &[usize],
+    v: usize,
+) -> Measure {
     if game.get_owner(v) == alpha {
         let mut best: Option<Measure> = None;
         let priority = game.get_priority(v);
@@ -132,7 +145,6 @@ enum Measure {
     Inf,
 }
 
-
 impl Ord for Measure {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
@@ -154,13 +166,11 @@ fn compare_vec(vec1: &[usize], vec2: &[usize]) -> Ordering {
     Ordering::Equal
 }
 
-
 impl PartialOrd for Measure {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
-
 
 impl PartialEq for Measure {
     fn eq(&self, other: &Self) -> bool {
@@ -174,12 +184,10 @@ impl PartialEq for Measure {
 
 impl Eq for Measure {}
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
-
 
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
@@ -217,11 +225,10 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
-
 
     #[test]
     fn test_spm() {
@@ -234,7 +241,4 @@ mod tests {
 
         panic!();
     }
-
-    
-
 }
