@@ -80,7 +80,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                             tmp
                         };
                         
-                        if succ_val < best_val && !(lead_to_cycle(game, &strat0, &tmp_strat1, node) == Some(0)) {
+                        if succ_val < best_val && lead_to_cycle(game, &strat0, &tmp_strat1, node) != Some(0) {
                             best_val = succ_val;
                             best_succ = succ;
                         }
@@ -115,7 +115,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
                         tmp[node] = Some(succ);
                         tmp
                     };
-                    if succ_val > best_val && !(lead_to_cycle(game, &tmp_strat0, &strat1, node) == Some(1)) {
+                    if succ_val > best_val && lead_to_cycle(game, &tmp_strat0, &strat1, node) != Some(1) {
                         best_val = succ_val;
                         best_succ = succ;
                     }
