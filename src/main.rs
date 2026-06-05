@@ -30,7 +30,7 @@ enum Commands {
         output: String,
 
         /// Algorithm name to use
-        #[arg(long, default_value = "default")]
+        #[arg(long = "algo", short = 'a', default_value = "default")]
         algorithm: String,
     },
 
@@ -40,27 +40,27 @@ enum Commands {
         input: Option<String>,
 
         /// Count of random games to generate and test; ignored if input is a file or directory
-        #[arg(long = "count")]
+        #[arg(long = "count", short = 'c')]
         random_count: Option<usize>,
 
         /// Number of nodes for random games; ignored if input is a file or directory
-        #[arg(long = "size")]
+        #[arg(long = "size", short = 's')]
         random_nodes: Option<usize>,
 
         /// Maximum number of edges for a node for random games; ignored if input is a file or directory
-        #[arg(long = "maxe")]
+        #[arg(long = "maxe", short = 'e')]
         max_edges: Option<usize>,
 
         /// Maximum priority for random games; ignored if input is a file or directory
-        #[arg(long = "maxp")]
+        #[arg(long = "maxp", short = 'p')]
         max_prio: Option<usize>,
 
         /// Seed for random game generation; ignored if input is a file or directory
-        #[arg(long = "seed")]
+        #[arg(long = "seed", short = 'd')]
         seed: Option<u64>,
 
         /// Algorithm name to use; repeat this flag to test multiple algorithms
-        #[arg(long = "alg")]
+        #[arg(long = "algo", short = 'a')]
         algorithms: Vec<String>,
     },
 
