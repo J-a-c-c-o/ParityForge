@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "ParityTool"
+name = "ParityForge"
 version = "0.1.0"
 dependencies = [
  "clap",

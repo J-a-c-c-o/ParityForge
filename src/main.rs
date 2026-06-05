@@ -11,9 +11,9 @@ use clap::{Parser, Subcommand};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// ParityTool CLI
+/// ParityForge CLI
 #[derive(Parser)]
-#[command(name = "parity-tool")]
+#[command(name = "parity-forge", version, about = "A tool for solving parity games with various algorithms")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
