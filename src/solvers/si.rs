@@ -6,17 +6,12 @@ pub fn run_si(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<u
 }
 
 pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
-    let mut strat0 = vec![None; game.num_nodes()];
-    let mut strat1 = vec![None; game.num_nodes()];
+    let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
+    let mut strat: Vec<usize> = vec![0; game.num_nodes()];
 
     for node in 0..game.num_nodes() {
-        let player = game.get_owner(node);
         let best = game.get_successors(node).iter().min_by_key(|&s| game.get_priority(*s)).unwrap();
-        if player == 0 {
-            strat0[node] = Some(*best);
-        } else {
-            strat1[node] = Some(*best);
-        }
+        strat[node] = *best;
     }
 
     let mut in_halting = vec![false; game.num_nodes()];
@@ -31,69 +26,22 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
         
     loop {
         loop {
-            valuations = compute_all_valuations(game, &strat0, &strat1, &in_halting);
-            let mut tau_changed = false;
-            for node in 0..game.num_nodes() {
-                if game.get_owner(node) == 1 {
-                    let current_succ = strat1[node].unwrap();
-                    let mut best_succ = current_succ;
-                    let mut best_val = valuations[current_succ].clone();
+            valuations = compute_all_valuations(game, &strat, &in_halting);
 
-                    for &succ in game.get_successors(node).iter() {
-                        let succ_val = if in_halting[succ] {
-                            Valuation::Finite(vec![0; game.get_max_priority() + 1])
-                        } else {
-                            valuations[succ].clone()
-                        };
-                        if succ_val < best_val {
-                            best_val = succ_val;
-                            best_succ = succ;
-                        }
-                    }
-
-                    if best_succ != current_succ {
-                        strat1[node] = Some(best_succ);
-                        tau_changed = true;
-                    }
-                }
-            }
+            let tau_changed = switch_rule(game, &mut strat, &in_halting, &valuations, 1);
 
             if !tau_changed {
                 break;
             }
         }
 
-        let mut sigma_changed = false;
+        
         let mut h_changed = false;
 
+        let sigma_changed = switch_rule(game, &mut strat, &in_halting, &valuations, 0);
 
         for node in 0..game.num_nodes() {
-            if game.get_owner(node) == 0 {
-                let current_succ = strat0[node].unwrap();
-                let mut best_succ = current_succ;
-                let mut best_val = valuations[current_succ].clone();
-
-                for &succ in game.get_successors(node).iter() {
-                    let succ_val = if in_halting[succ] {
-                        Valuation::Finite(vec![0; game.get_max_priority() + 1])
-                    } else {
-                        valuations[succ].clone()
-                    };
-                    if succ_val > best_val {
-                        best_val = succ_val;
-                        best_succ = succ;
-                    }
-                }
-
-                if best_succ != current_succ {
-                    strat0[node] = Some(best_succ);
-                    sigma_changed = true;
-                }
-            }
-        }
-
-        for node in 0..game.num_nodes() {
-            if in_halting[node] && valuations[node] > Valuation::Finite(vec![0; game.get_max_priority() + 1]) {
+            if in_halting[node] && valuations[node] > zeros {
                 in_halting[node] = false;
                 h_changed = true;
             }
@@ -112,14 +60,51 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     for node in 0..game.num_nodes() {
         if &valuations[node] == &Valuation::Infinite {
             w0.push(node);
-            new_strat0[node] = strat0[node];
+            new_strat0[node] = Some(strat[node]);
         } else {
             w1.push(node);
-            new_strat1[node] = strat1[node];
+            new_strat1[node] = Some(strat[node]);
         }
     }
 
     (w0, w1, new_strat0, new_strat1)
+}
+
+fn switch_rule(game: &ParityGame, strat: &mut Vec<usize>, in_halting: &Vec<bool>, valuations: &Vec<Valuation>, player: usize) -> bool {
+    let mut changed = false;
+    let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
+    for node in 0..game.num_nodes() {
+        if game.get_owner(node) == player {
+            let current_succ = strat[node];
+            let mut best_succ = current_succ;
+            let mut best_val = &valuations[current_succ];
+
+            for &succ in game.get_successors(node).iter() {
+                let succ_val = if in_halting[succ] {
+                    &zeros
+                } else {
+                    &valuations[succ]
+                };
+                if player == 0 {
+                    if succ_val > best_val {
+                        best_val = succ_val;
+                        best_succ = succ;
+                    }
+                } else {
+                    if succ_val < best_val {
+                        best_val = succ_val;
+                        best_succ = succ;
+                    }
+                }
+            }
+
+            if best_succ != current_succ {
+                strat[node] = best_succ;
+                changed = true;
+            }
+        }
+    }
+    changed
 }
 
 #[derive(Debug, Clone)]
@@ -186,23 +171,19 @@ fn compare_vec(vec1: &[usize], vec2: &[usize]) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
-fn compute_all_valuations(game: &ParityGame, strat0: &[Option<usize>], strat1: &[Option<usize>], in_halting: &[bool]) -> Vec<Valuation> {
+fn compute_all_valuations(game: &ParityGame, strat: &[usize], in_halting: &[bool]) -> Vec<Valuation> {
     let mut valuations = vec![Valuation::Finite(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
     let mut visited = vec![false; game.num_nodes()];
     let mut nodes_with_no_successors = Vec::new();
     for node in 0..game.num_nodes() {
-        let successor = if game.get_owner(node) == 0 {
-            strat0[node]
-        } else {
-            strat1[node]
-        };
-        if successor.is_none() || in_halting[successor.unwrap()] {
+        let successor = strat[node];
+        if in_halting[successor] {
             nodes_with_no_successors.push(node);
         } 
     }
 
     while let Some(node) = nodes_with_no_successors.pop() {
-        dfs_backwards(game, node, strat0, strat1, in_halting, &mut valuations, &mut visited);
+        dfs_backwards(game, node, strat, in_halting, &mut valuations, &mut visited);
     }
 
     for node in 0..game.num_nodes() {
@@ -216,7 +197,7 @@ fn compute_all_valuations(game: &ParityGame, strat0: &[Option<usize>], strat1: &
 }
 
 
-fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat1: &[Option<usize>], in_halting: &[bool], valuations: &mut [Valuation], visited: &mut [bool]) {
+fn dfs_backwards(game: &ParityGame, node: usize, strat: &[usize], in_halting: &[bool], valuations: &mut [Valuation], visited: &mut [bool]) {
 
     visited[node] = true;
 
@@ -234,14 +215,14 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat0: &[Option<usize>], strat
     }
 
     for &pred in game.get_predecessors(node) {
-        if strat0[pred] != Some(node) && strat1[pred] != Some(node) {
+        if strat[pred] != node {
             continue;
         } 
 
         let valuation = &valuations[pred] + &valuations[node];
         valuations[pred] = valuation;
 
-        dfs_backwards(game, pred, strat0, strat1, in_halting, valuations, visited);
+        dfs_backwards(game, pred, strat, in_halting, valuations, visited);
     }
 
     
