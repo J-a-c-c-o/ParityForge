@@ -4,8 +4,8 @@ mod solvers;
 mod verifier;
 
 use crate::parity_game::{ParityGame, ParityGameBuilder};
-use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol};
-use crate::solvers::{run_fpi, run_si, run_spm, run_tl, run_zielonka};
+use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
+use crate::solvers::{run_fpi, run_si, run_spm, run_tl, run_zielonka, run_external_solver};
 use crate::verifier::verify_solution;
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
@@ -62,6 +62,10 @@ enum Commands {
         /// Algorithm name to use; repeat this flag to test multiple algorithms
         #[arg(long = "algo", short = 'a')]
         algorithms: Vec<String>,
+
+        /// External command to run as an algorithm, using %I for input file and %O for output file; repeat this flag to test multiple external algorithms
+        #[arg(long = "external", short = 'x')]
+        external_commands: Vec<String>,
     },
 
     /// Verify a solution file against a game file
@@ -93,6 +97,7 @@ fn main() {
             max_prio,
             algorithms,
             seed,
+            external_commands,
         } => {
             run_test_command(
                 input,
@@ -102,6 +107,7 @@ fn main() {
                 max_prio,
                 algorithms,
                 seed,
+                external_commands,
             );
         }
 
@@ -133,8 +139,9 @@ fn run_test_command(
     max_prio: Option<usize>,
     algorithms: Vec<String>,
     seed: Option<u64>,
+    external_commands: Vec<String>,
 ) {
-    let algorithms = if algorithms.is_empty() {
+    let algorithms = if algorithms.is_empty() && external_commands.is_empty() {
         vec![
             String::from("zlk"),
             String::from("fpi"),
@@ -200,6 +207,59 @@ fn run_test_command(
                     }
                 }
             }
+
+            for external_command in &external_commands {
+                let output_file = std::env::temp_dir().join(format!(
+                    "parity-forge-test-{}.paritysol",
+                    path.file_stem().unwrap().to_string_lossy()
+                ));
+                let start_time = std::time::Instant::now();
+                let result = run_external_solver(external_command, &path, &output_file);
+                let duration = start_time.elapsed();
+                combined_times
+                    .entry(external_command.clone())
+                    .and_modify(|d| *d += duration)
+                    .or_insert(duration);
+                match result {
+                    Ok((w0, w1, strat0, strat1)) => {
+                        match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
+                            Ok(()) => {
+                                println!(
+                                    "[ok] {} via external '{}' in {:.2?}",
+                                    path.display(),
+                                    external_command,
+                                    duration
+                                );
+                            }
+                            Err(e) => {
+                                failures += 1;
+                                eprintln!(
+                                    "[fail] {} via external '{}': {} in {:.2?}",
+                                    path.display(),
+                                    external_command,
+                                    e,
+                                    duration
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!(
+                            "[fail] {} via external '{}': {} in {:.2?}",
+                            path.display(),
+                            external_command,
+                            e,
+                            duration
+                        );
+                    }
+                }
+
+                // Clean up the temporary output file
+                if let Err(e) = std::fs::remove_file(&output_file) {
+                    eprintln!("Warning: Failed to remove temporary file '{}': {}", output_file.display(), e);
+                }
+            }
         }
     } else {
         let count = random_count.unwrap_or(100);
@@ -240,6 +300,79 @@ fn run_test_command(
                     }
                 }
             }
+
+            let input_file = std::env::temp_dir().join(format!(
+                "parity-forge-random-game-{}.pg",
+                i + 1
+            ));
+            if !external_commands.is_empty() {
+                std::fs::write(&input_file, unparse_pg(&game)).unwrap_or_else(|e| {
+                    eprintln!("Error writing temporary game file '{}': {}", input_file.display(), e);
+                    std::process::exit(1);
+                });
+            }
+
+            for external_command in &external_commands {
+                let output_file = std::env::temp_dir().join(format!(
+                    "parity-forge-random-test-{}.paritysol",
+                    i + 1
+                ));
+                let start_time = std::time::Instant::now();
+                let result = run_external_solver(external_command, &input_file, &output_file);
+                let duration = start_time.elapsed();
+                combined_times
+                    .entry(external_command.clone())
+                    .and_modify(|d| *d += duration)
+                    .or_insert(duration);
+                match result {
+                    Ok((w0, w1, strat0, strat1)) => {
+                        match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
+                            Ok(()) => {
+                                println!(
+                                    "[ok] random game #{} via external '{}' in {:.2?}",
+                                    i + 1,
+                                    external_command,
+                                    duration
+                                );
+                            }
+                            Err(e) => {
+                                failures += 1;
+                                eprintln!(
+                                    "[fail] random game #{} via external '{}': {} in {:.2?}",
+                                    i + 1,
+                                    external_command,
+                                    e,
+                                    duration
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!(
+                            "[fail] random game #{} via external '{}': {} in {:.2?}",
+                            i + 1,
+                            external_command,
+                            e,
+                            duration
+                        );
+                    }
+                }
+
+                // Clean up the temporary output file
+                if let Err(e) = std::fs::remove_file(&output_file) {
+                    eprintln!("Warning: Failed to remove temporary file '{}': {}", output_file.display(), e);
+                }
+            }
+
+            // Clean up the temporary input file
+            if !external_commands.is_empty() {
+                if let Err(e) = std::fs::remove_file(&input_file) {
+                    eprintln!("Warning: Failed to remove temporary file '{}': {}", input_file.display(), e);
+                }
+            }
+
+
         }
     }
 

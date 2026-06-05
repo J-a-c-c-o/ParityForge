@@ -51,6 +51,19 @@ pub fn parse_pg(input: &str) -> Result<ParityGame, String> {
     Ok(builder.build())
 }
 
+pub fn unparse_pg(game: &ParityGame) -> String {
+    let mut output = String::new();
+    output.push_str(&format!("parity {};\n", game.num_nodes()));
+    for node in game.get_nodes() {
+        let priority = game.get_priority(node);
+        let owner = game.get_owner(node);
+        let edges = game.get_edges(node).iter().map(|e| e.to_string()).collect::<Vec<_>>().join(",");
+        let label = game.get_label(node).map_or(String::new(), |l| format!(" {}", l));
+        output.push_str(&format!("{} {} {} {}{};\n", node, priority, owner, edges, label));
+    }
+    output
+}
+
 pub fn strat_to_sol(
     game: &ParityGame,
     strategy0: &[Option<usize>],
