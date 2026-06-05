@@ -35,6 +35,12 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             }
         }
 
+        for val in valuations.iter_mut() {
+            if *val == Valuation::Infinite {
+                *val = Valuation::Won;
+            }
+        }
+
         
         let mut h_changed = false;
 
@@ -58,7 +64,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     let mut new_strat0: Vec<Option<usize>> = vec![None; game.num_nodes()];
     let mut new_strat1: Vec<Option<usize>> = vec![None; game.num_nodes()];
     for node in 0..game.num_nodes() {
-        if &valuations[node] == &Valuation::Infinite {
+        if valuations[node] == Valuation::Won {
             w0.push(node);
             new_strat0[node] = Some(strat[node]);
         } else {
@@ -74,7 +80,7 @@ fn switch_rule(game: &ParityGame, strat: &mut Vec<usize>, in_halting: &Vec<bool>
     let mut changed = false;
     let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
     for node in 0..game.num_nodes() {
-        if game.get_owner(node) == player {
+        if game.get_owner(node) == player && valuations[node] != Valuation::Won {
             let current_succ = strat[node];
             let mut best_succ = current_succ;
             let mut best_val = &valuations[current_succ];
@@ -110,6 +116,7 @@ fn switch_rule(game: &ParityGame, strat: &mut Vec<usize>, in_halting: &Vec<bool>
 #[derive(Debug, Clone)]
 enum Valuation {
     Infinite,
+    Won,
     Finite(Vec<usize>),
 }
 
@@ -119,6 +126,7 @@ impl ops::Add for &Valuation {
     fn add(self, other: &Valuation) -> Valuation {
         match (self, other) {
             (Valuation::Infinite, _) | (_, Valuation::Infinite) => Valuation::Infinite,
+            (Valuation::Won, _) | (_, Valuation::Won) => Valuation::Won,
             (Valuation::Finite(vec1), Valuation::Finite(vec2)) => {
                 let summed_vec: Vec<usize> = vec1.iter().zip(vec2.iter()).map(|(a, b)| a + b).collect();
                 Valuation::Finite(summed_vec)
@@ -132,6 +140,7 @@ impl PartialEq for Valuation {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Valuation::Infinite, Valuation::Infinite) => true,
+            (Valuation::Won, Valuation::Won) => true,
             (Valuation::Finite(vec1), Valuation::Finite(vec2)) => vec1 == vec2,
             _ => false,
         }
@@ -142,18 +151,23 @@ impl Eq for Valuation {}
 
 impl PartialOrd for Valuation {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (Valuation::Infinite, Valuation::Infinite) => Some(std::cmp::Ordering::Equal),
-            (Valuation::Infinite, _) => Some(std::cmp::Ordering::Greater),
-            (_, Valuation::Infinite) => Some(std::cmp::Ordering::Less),
-            (Valuation::Finite(vec1), Valuation::Finite(vec2)) => Some(compare_vec(vec1, vec2)),
-        }
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Valuation {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        match (self, other) {
+            (Valuation::Infinite, Valuation::Infinite) => std::cmp::Ordering::Equal,
+            (Valuation::Won, Valuation::Won) => std::cmp::Ordering::Equal,
+            (Valuation::Won, Valuation::Infinite) => std::cmp::Ordering::Equal,
+            (Valuation::Infinite, Valuation::Won) => std::cmp::Ordering::Equal,
+            (Valuation::Won, _) => std::cmp::Ordering::Greater,
+            (_, Valuation::Won) => std::cmp::Ordering::Less,
+            (Valuation::Infinite, _) => std::cmp::Ordering::Greater,
+            (_, Valuation::Infinite) => std::cmp::Ordering::Less,
+            (Valuation::Finite(vec1), Valuation::Finite(vec2)) => compare_vec(vec1, vec2),
+        }
     }
 }
 
@@ -176,6 +190,9 @@ fn compute_all_valuations(game: &ParityGame, strat: &[usize], in_halting: &[bool
     let mut visited = vec![false; game.num_nodes()];
     let mut nodes_with_no_successors = Vec::new();
     for node in 0..game.num_nodes() {
+        if valuations[node] == Valuation::Won {
+            continue;
+        }
         let successor = strat[node];
         if in_halting[successor] {
             nodes_with_no_successors.push(node);
@@ -204,6 +221,7 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat: &[usize], in_halting: &[
 
     match valuations[node] {
         Valuation::Infinite => {},
+        Valuation::Won => {},
         Valuation::Finite(ref mut vec) => {
             let priority = game.get_priority(node);
             vec[priority] += 1;
