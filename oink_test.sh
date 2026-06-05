@@ -1,4 +1,4 @@
 mkdir -p tmp &&
 cargo build --release && 
 cd ./tmp && 
-../oink/build/test_solvers -e "../target/release/ParityTool solve %I %O --algorithm si" ../oink/tests/
+../oink/build/test_solvers -e "../target/release/ParityTool solve %I %O --algorithm si" ../oink/examples/*.pg
