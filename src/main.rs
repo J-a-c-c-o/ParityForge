@@ -5,7 +5,7 @@ mod verifier;
 
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
-use crate::solvers::{run_fpi, run_si, run_spm, run_tl, run_zielonka, run_external_solver};
+use crate::solvers::{run_external_solver, run_fpi, run_si, run_spm, run_tl, run_zielonka};
 use crate::verifier::verify_solution;
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
@@ -13,7 +13,11 @@ use std::path::{Path, PathBuf};
 
 /// ParityForge CLI
 #[derive(Parser)]
-#[command(name = "parity-forge", version, about = "A tool for solving parity games with various algorithms")]
+#[command(
+    name = "parity-forge",
+    version,
+    about = "A tool for solving parity games with various algorithms"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -257,7 +261,11 @@ fn run_test_command(
 
                 // Clean up the temporary output file
                 if let Err(e) = std::fs::remove_file(&output_file) {
-                    eprintln!("Warning: Failed to remove temporary file '{}': {}", output_file.display(), e);
+                    eprintln!(
+                        "Warning: Failed to remove temporary file '{}': {}",
+                        output_file.display(),
+                        e
+                    );
                 }
             }
         }
@@ -301,22 +309,22 @@ fn run_test_command(
                 }
             }
 
-            let input_file = std::env::temp_dir().join(format!(
-                "parity-forge-random-game-{}.pg",
-                i + 1
-            ));
+            let input_file =
+                std::env::temp_dir().join(format!("parity-forge-random-game-{}.pg", i + 1));
             if !external_commands.is_empty() {
                 std::fs::write(&input_file, unparse_pg(&game)).unwrap_or_else(|e| {
-                    eprintln!("Error writing temporary game file '{}': {}", input_file.display(), e);
+                    eprintln!(
+                        "Error writing temporary game file '{}': {}",
+                        input_file.display(),
+                        e
+                    );
                     std::process::exit(1);
                 });
             }
 
             for external_command in &external_commands {
-                let output_file = std::env::temp_dir().join(format!(
-                    "parity-forge-random-test-{}.paritysol",
-                    i + 1
-                ));
+                let output_file = std::env::temp_dir()
+                    .join(format!("parity-forge-random-test-{}.paritysol", i + 1));
                 let start_time = std::time::Instant::now();
                 let result = run_external_solver(external_command, &input_file, &output_file);
                 let duration = start_time.elapsed();
@@ -361,18 +369,22 @@ fn run_test_command(
 
                 // Clean up the temporary output file
                 if let Err(e) = std::fs::remove_file(&output_file) {
-                    eprintln!("Warning: Failed to remove temporary file '{}': {}", output_file.display(), e);
+                    eprintln!(
+                        "Warning: Failed to remove temporary file '{}': {}",
+                        output_file.display(),
+                        e
+                    );
                 }
             }
 
             // Clean up the temporary input file
-            if !external_commands.is_empty() {
-                if let Err(e) = std::fs::remove_file(&input_file) {
-                    eprintln!("Warning: Failed to remove temporary file '{}': {}", input_file.display(), e);
-                }
+            if !external_commands.is_empty() && let Err(e) = std::fs::remove_file(&input_file) {
+                eprintln!(
+                    "Warning: Failed to remove temporary file '{}': {}",
+                    input_file.display(),
+                    e
+                );
             }
-
-
         }
     }
 

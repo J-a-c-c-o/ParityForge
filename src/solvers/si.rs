@@ -274,4 +274,3 @@ fn dfs_backwards(
         dfs_backwards(game, pred, strat, in_halting, valuations, visited);
     }
 }
-

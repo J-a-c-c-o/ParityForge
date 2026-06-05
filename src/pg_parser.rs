@@ -57,9 +57,19 @@ pub fn unparse_pg(game: &ParityGame) -> String {
     for node in game.get_nodes() {
         let priority = game.get_priority(node);
         let owner = game.get_owner(node);
-        let edges = game.get_edges(node).iter().map(|e| e.to_string()).collect::<Vec<_>>().join(",");
-        let label = game.get_label(node).map_or(String::new(), |l| format!(" {}", l));
-        output.push_str(&format!("{} {} {} {}{};\n", node, priority, owner, edges, label));
+        let edges = game
+            .get_edges(node)
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let label = game
+            .get_label(node)
+            .map_or(String::new(), |l| format!(" {}", l));
+        output.push_str(&format!(
+            "{} {} {} {}{};\n",
+            node, priority, owner, edges, label
+        ));
     }
     output
 }
