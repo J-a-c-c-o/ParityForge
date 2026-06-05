@@ -306,9 +306,10 @@ fn compute_escapes(
     for &v in nodes {
         if game.get_owner(v) == player {
             if let Some(succ) = strategy[v]
-                && !in_nodes[succ] {
-                    escapes.insert(succ);
-                }
+                && !in_nodes[succ]
+            {
+                escapes.insert(succ);
+            }
         } else {
             for &succ in game.get_successors(v) {
                 if !in_nodes[succ] {

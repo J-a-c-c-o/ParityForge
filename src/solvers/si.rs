@@ -1,16 +1,37 @@
 use crate::parity_game::ParityGame;
 use std::ops;
 
-pub fn run_si(game: &ParityGame) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+pub fn run_si(
+    game: &ParityGame,
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     Ok(solve(game))
 }
 
-pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>) {
+pub fn solve(
+    game: &ParityGame,
+) -> (
+    Vec<usize>,
+    Vec<usize>,
+    Vec<Option<usize>>,
+    Vec<Option<usize>>,
+) {
     let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
     let mut strat: Vec<usize> = vec![0; game.num_nodes()];
 
     for node in 0..game.num_nodes() {
-        let best = game.get_successors(node).iter().min_by_key(|&s| game.get_priority(*s)).unwrap();
+        let best = game
+            .get_successors(node)
+            .iter()
+            .min_by_key(|&s| game.get_priority(*s))
+            .unwrap();
         strat[node] = *best;
     }
 
@@ -23,7 +44,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
 
     let mut valuations;
 
-        
     loop {
         loop {
             valuations = compute_all_valuations(game, &strat, &in_halting);
@@ -41,7 +61,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             }
         }
 
-        
         let mut h_changed = false;
 
         let sigma_changed = switch_rule(game, &mut strat, &in_halting, &valuations, 0);
@@ -57,7 +76,6 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
             break;
         }
     }
-    
 
     let mut w0 = Vec::new();
     let mut w1 = Vec::new();
@@ -76,7 +94,13 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     (w0, w1, new_strat0, new_strat1)
 }
 
-fn switch_rule(game: &ParityGame, strat: &mut [usize], in_halting: &[bool], valuations: &[Valuation], player: usize) -> bool {
+fn switch_rule(
+    game: &ParityGame,
+    strat: &mut [usize],
+    in_halting: &[bool],
+    valuations: &[Valuation],
+    player: usize,
+) -> bool {
     let mut changed = false;
     let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
     for node in 0..game.num_nodes() {
@@ -128,13 +152,13 @@ impl ops::Add for &Valuation {
             (Valuation::Infinite, _) | (_, Valuation::Infinite) => Valuation::Infinite,
             (Valuation::Won, _) | (_, Valuation::Won) => Valuation::Won,
             (Valuation::Finite(vec1), Valuation::Finite(vec2)) => {
-                let summed_vec: Vec<usize> = vec1.iter().zip(vec2.iter()).map(|(a, b)| a + b).collect();
+                let summed_vec: Vec<usize> =
+                    vec1.iter().zip(vec2.iter()).map(|(a, b)| a + b).collect();
                 Valuation::Finite(summed_vec)
             }
         }
     }
 }
-
 
 impl PartialEq for Valuation {
     fn eq(&self, other: &Self) -> bool {
@@ -171,7 +195,6 @@ impl Ord for Valuation {
     }
 }
 
-
 fn compare_vec(vec1: &[usize], vec2: &[usize]) -> std::cmp::Ordering {
     for (priority, (a, b)) in vec1.iter().zip(vec2.iter()).enumerate().rev() {
         if a != b {
@@ -185,8 +208,13 @@ fn compare_vec(vec1: &[usize], vec2: &[usize]) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
-fn compute_all_valuations(game: &ParityGame, strat: &[usize], in_halting: &[bool]) -> Vec<Valuation> {
-    let mut valuations = vec![Valuation::Finite(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
+fn compute_all_valuations(
+    game: &ParityGame,
+    strat: &[usize],
+    in_halting: &[bool],
+) -> Vec<Valuation> {
+    let mut valuations =
+        vec![Valuation::Finite(vec![0; game.get_max_priority() + 1]); game.num_nodes()];
     let mut visited = vec![false; game.num_nodes()];
     let mut nodes_with_no_successors = Vec::new();
     for node in 0..game.num_nodes() {
@@ -196,7 +224,7 @@ fn compute_all_valuations(game: &ParityGame, strat: &[usize], in_halting: &[bool
         let successor = strat[node];
         if in_halting[successor] {
             nodes_with_no_successors.push(node);
-        } 
+        }
     }
 
     while let Some(node) = nodes_with_no_successors.pop() {
@@ -209,19 +237,22 @@ fn compute_all_valuations(game: &ParityGame, strat: &[usize], in_halting: &[bool
         }
     }
 
-
     valuations
 }
 
-
-fn dfs_backwards(game: &ParityGame, node: usize, strat: &[usize], in_halting: &[bool], valuations: &mut [Valuation], visited: &mut [bool]) {
-
+fn dfs_backwards(
+    game: &ParityGame,
+    node: usize,
+    strat: &[usize],
+    in_halting: &[bool],
+    valuations: &mut [Valuation],
+    visited: &mut [bool],
+) {
     visited[node] = true;
 
-
     match valuations[node] {
-        Valuation::Infinite => {},
-        Valuation::Won => {},
+        Valuation::Infinite => {}
+        Valuation::Won => {}
         Valuation::Finite(ref mut vec) => {
             let priority = game.get_priority(node);
             vec[priority] += 1;
@@ -235,22 +266,19 @@ fn dfs_backwards(game: &ParityGame, node: usize, strat: &[usize], in_halting: &[
     for &pred in game.get_predecessors(node) {
         if strat[pred] != node {
             continue;
-        } 
+        }
 
         let valuation = &valuations[pred] + &valuations[node];
         valuations[pred] = valuation;
 
         dfs_backwards(game, pred, strat, in_halting, valuations, visited);
     }
-
-    
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parity_game::ParityGameBuilder;
-
 
     fn example_game() -> ParityGame {
         let mut builder = ParityGameBuilder::new();
@@ -288,7 +316,7 @@ mod tests {
             .set_priority(6, 6)
             .set_priority(7, 7)
             .set_priority(8, 8);
-        
+
         let game = builder.build();
         game
     }
@@ -303,5 +331,5 @@ mod tests {
         println!("Strategy for player 1: {:?}", strat1);
 
         panic!();
-    }    
+    }
 }

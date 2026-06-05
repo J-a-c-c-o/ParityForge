@@ -168,10 +168,9 @@ fn attract(
     }
 
     for &node in nodes_to_attract {
-        if !excluded[node]
-            && attractor.insert(node) {
-                queue.push_back(node);
-            }
+        if !excluded[node] && attractor.insert(node) {
+            queue.push_back(node);
+        }
     }
 
     while let Some(current) = queue.pop_front() {
