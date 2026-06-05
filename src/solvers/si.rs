@@ -76,7 +76,7 @@ pub fn solve(game: &ParityGame) -> (Vec<usize>, Vec<usize>, Vec<Option<usize>>, 
     (w0, w1, new_strat0, new_strat1)
 }
 
-fn switch_rule(game: &ParityGame, strat: &mut Vec<usize>, in_halting: &Vec<bool>, valuations: &Vec<Valuation>, player: usize) -> bool {
+fn switch_rule(game: &ParityGame, strat: &mut [usize], in_halting: &[bool], valuations: &[Valuation], player: usize) -> bool {
     let mut changed = false;
     let zeros = Valuation::Finite(vec![0; game.get_max_priority() + 1]);
     for node in 0..game.num_nodes() {
