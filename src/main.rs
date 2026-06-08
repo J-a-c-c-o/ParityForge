@@ -184,12 +184,26 @@ fn run_test_command(
 
             for algorithm in &algorithms {
                 let start_time = std::time::Instant::now();
-                let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
+                let result = solve_game(&game, algorithm);
                 let duration = start_time.elapsed();
                 combined_times
                     .entry(algorithm.clone())
                     .and_modify(|d| *d += duration)
                     .or_insert(duration);
+                let (w0, w1, strat0, strat1) = match result {
+                    Ok(res) => res,
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!(
+                            "[fail] {} via {}: Error running algorithm: {} in {:.2?}",
+                            path.display(),
+                            algorithm,
+                            e,
+                            duration
+                        );
+                        continue;
+                    }
+                };
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
                         println!(
@@ -281,12 +295,26 @@ fn run_test_command(
                 .build();
             for algorithm in &algorithms {
                 let start_time = std::time::Instant::now();
-                let (w0, w1, strat0, strat1) = solve_game(&game, algorithm);
+                let result = solve_game(&game, algorithm);
                 let duration = start_time.elapsed();
                 combined_times
                     .entry(algorithm.clone())
                     .and_modify(|d| *d += duration)
                     .or_insert(duration);
+                let (w0, w1, strat0, strat1) = match result {
+                    Ok(res) => res,
+                    Err(e) => {
+                        failures += 1;
+                        eprintln!(
+                            "[fail] random game #{} via {}: Error running algorithm: {} in {:.2?}",
+                            i + 1,
+                            algorithm,
+                            e,
+                            duration
+                        );
+                        continue;
+                    }
+                };
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
                         println!(
@@ -523,22 +551,25 @@ fn si(input: &str, output_file: &str) {
 fn solve_game(
     game: &ParityGame,
     algorithm: &str,
-) -> (
-    Vec<usize>,
-    Vec<usize>,
-    Vec<Option<usize>>,
-    Vec<Option<usize>>,
-) {
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     match algorithm {
         "default" | "zlk" => {
-            run_zielonka(game).unwrap_or_else(|e| exit_algorithm_error("Zielonka's algorithm", &e))
+            run_zielonka(game)
         }
-        "fpi" => run_fpi(game).unwrap_or_else(|e| exit_algorithm_error("FPI algorithm", &e)),
+        "fpi" => run_fpi(game),
         "tl" => {
-            run_tl(game).unwrap_or_else(|e| exit_algorithm_error("Tangle Learning algorithm", &e))
+            run_tl(game)
         }
-        "spm" => run_spm(game).unwrap_or_else(|e| exit_algorithm_error("SPM algorithm", &e)),
-        "si" => run_si(game).unwrap_or_else(|e| exit_algorithm_error("SI algorithm", &e)),
+        "spm" => run_spm(game),
+        "si" => run_si(game),
         _ => {
             eprintln!("Algorithm '{}' not implemented yet.", algorithm);
             std::process::exit(2);
@@ -546,10 +577,6 @@ fn solve_game(
     }
 }
 
-fn exit_algorithm_error(algorithm_name: &str, error: &str) -> ! {
-    eprintln!("Error running {}: {}", algorithm_name, error);
-    std::process::exit(1);
-}
 
 fn collect_pg_inputs(path: &Path) -> Result<Vec<PathBuf>, String> {
     let metadata = std::fs::metadata(path)

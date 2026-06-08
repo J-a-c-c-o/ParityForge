@@ -54,12 +54,7 @@ fn tangle_learning(
         
         if dominions.is_empty() {
             if !learned_new_tangle {
-                let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
-                mark_winner(&mut winner, &mut in_game, &rw0, 0);
-                mark_winner(&mut winner, &mut in_game, &rw1, 1);
-                merge_strategy(&mut strat0, &rs0, 0, game);
-                merge_strategy(&mut strat1, &rs1, 1, game);
-                break;
+                return Err("No new tangles learned and no dominions found, but game is not solved. This should not happen.".to_string());
             }
             continue;
         }
@@ -266,7 +261,7 @@ fn bottom_sccs(
         in_region[v] = true;
     }
 
-    let sccs = game.bottom_sccs(&in_region, sigma, player);
+    let sccs = game.bottom_sccs(&in_region, sigma);
     let mut tangles = Vec::new();
 
     for scc in sccs {
@@ -390,26 +385,6 @@ fn nodes_with_priority(game: &ParityGame, in_game: &[bool], prio: usize) -> Vec<
         .into_iter()
         .filter(|&v| in_game[v])
         .collect()
-}
-
-fn zielonka_fallback(
-    game: &ParityGame,
-    in_game: &[bool],
-) -> (
-    Vec<usize>,
-    Vec<usize>,
-    Vec<Option<usize>>,
-    Vec<Option<usize>>,
-) {
-    let mut excluded = vec![true; game.num_nodes()];
-    for v in 0..game.num_nodes() {
-        if in_game[v] {
-            excluded[v] = false;
-        }
-    }
-
-    let (w0, w1, s0, s1) = crate::solvers::zielonka::zielonka_solve(game, &excluded);
-    (w0, w1, s0, s1)
 }
 
 #[derive(Clone)]

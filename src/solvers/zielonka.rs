@@ -16,18 +16,6 @@ pub fn run_zielonka(
     Ok(solve(game, &excluded))
 }
 
-pub fn zielonka_solve(
-    game: &ParityGame,
-    excluded: &[bool],
-) -> (
-    Vec<usize>,
-    Vec<usize>,
-    Vec<Option<usize>>,
-    Vec<Option<usize>>,
-) {
-    solve(game, excluded)
-}
-
 fn solve(
     game: &ParityGame,
     excluded: &[bool],

@@ -52,8 +52,8 @@ pub fn verify_solution(
     validate_player_witness(game, &in_w0, strat0, 0)?;
     validate_player_witness(game, &in_w1, strat1, 1)?;
 
-    let bottoms0 = game.bottom_sccs(&in_w0, strat0, 0);
-    let bottoms1 = game.bottom_sccs(&in_w1, strat1, 1);
+    let bottoms0 = game.bottom_sccs(&in_w0, strat0);
+    let bottoms1 = game.bottom_sccs(&in_w1, strat1);
 
     for scc in bottoms0 {
         let max_prio = scc.iter().map(|&v| game.get_priority(v)).max().unwrap_or(0);

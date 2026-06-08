@@ -140,21 +140,19 @@ impl ParityGame {
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
-        player: usize,
     ) -> Vec<Vec<usize>> {
-        self.tarjan_sccs(in_region, sigma, player)
+        self.tarjan_sccs(in_region, sigma)
     }
 
     pub fn bottom_sccs(
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
-        player: usize,
     ) -> Vec<Vec<usize>> {
-        self.sccs(in_region, sigma, player)
+        self.sccs(in_region, sigma)
             .into_iter()
-            .filter(|scc| self.is_nontrivial_scc(scc, in_region, sigma, player))
-            .filter(|scc| self.is_bottom_scc(scc, in_region, sigma, player))
+            .filter(|scc| self.is_nontrivial_scc(scc))
+            .filter(|scc| self.is_bottom_scc(scc, in_region, sigma))
             .collect()
     }
 
@@ -162,7 +160,6 @@ impl ParityGame {
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
-        player: usize,
     ) -> Vec<Vec<usize>> {
         let mut index = vec![None; self.nodes];
         let mut lowlink = vec![0; self.nodes];
@@ -184,7 +181,7 @@ impl ParityGame {
             on_stack[start] = true;
             call_stack.push(TarjanFrame {
                 node: start,
-                neighbors: self.filtered_successors(in_region, sigma, player, start),
+                neighbors: self.filtered_successors(in_region, sigma, start),
                 next_neighbor: 0,
             });
 
@@ -203,7 +200,7 @@ impl ParityGame {
                         on_stack[next] = true;
                         call_stack.push(TarjanFrame {
                             node: next,
-                            neighbors: self.filtered_successors(in_region, sigma, player, next),
+                            neighbors: self.filtered_successors(in_region, sigma, next),
                             next_neighbor: 0,
                         });
                     } else if on_stack[next] {
@@ -247,29 +244,24 @@ impl ParityGame {
         &self,
         in_region: &[bool],
         sigma: &[Option<usize>],
-        player: usize,
         node: usize,
     ) -> Vec<usize> {
-        if self.get_owner(node) == player {
-            match sigma[node] {
-                Some(succ) if in_region[succ] => vec![succ],
-                _ => Vec::new(),
-            }
-        } else {
-            self.get_successors(node)
+        match sigma[node] {
+            Some(succ) if in_region[succ] => vec![succ],
+            Some(_) => Vec::new(),
+            None => self
+                .get_successors(node)
                 .iter()
                 .copied()
                 .filter(|&succ| in_region[succ])
-                .collect()
+                .collect(),
         }
     }
-
     fn is_bottom_scc(
         &self,
         scc: &[usize],
         in_region: &[bool],
         sigma: &[Option<usize>],
-        player: usize,
     ) -> bool {
         let mut in_scc = vec![false; self.nodes];
         for &v in scc {
@@ -277,7 +269,7 @@ impl ParityGame {
         }
 
         for &v in scc {
-            for succ in self.successors_from_strategy(in_region, sigma, player, v) {
+            for succ in self.successors_from_strategy(in_region, sigma, v) {
                 if !in_scc[succ] {
                     return false;
                 }
@@ -290,23 +282,9 @@ impl ParityGame {
     fn is_nontrivial_scc(
         &self,
         scc: &[usize],
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-        player: usize,
     ) -> bool {
         if scc.len() > 1 {
             return true;
-        }
-
-        if let Some(&v) = scc.first() {
-            if self.get_owner(v) == player {
-                return sigma[v] == Some(v);
-            }
-
-            return self
-                .get_successors(v)
-                .iter()
-                .any(|&succ| succ == v && in_region[succ]);
         }
 
         false
@@ -316,21 +294,11 @@ impl ParityGame {
         &'a self,
         in_region: &'a [bool],
         sigma: &'a [Option<usize>],
-        player: usize,
         node: usize,
     ) -> Box<dyn Iterator<Item = usize> + 'a> {
-        if self.get_owner(node) == player {
-            match sigma[node] {
-                Some(succ) if in_region[succ] => Box::new(std::iter::once(succ)),
-                _ => Box::new(std::iter::empty()),
-            }
-        } else {
-            Box::new(
-                self.get_successors(node)
-                    .iter()
-                    .copied()
-                    .filter(move |&succ| in_region[succ]),
-            )
+        match sigma[node] {
+            Some(succ) if in_region[succ] => Box::new(std::iter::once(succ)),
+            _ => Box::new(std::iter::empty()),
         }
     }
 }
