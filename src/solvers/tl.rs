@@ -13,52 +13,55 @@ pub fn run_tl(
     ),
     String,
 > {
-    Ok(tangle_learning(game))
+    tangle_learning(game)
 }
 
 fn tangle_learning(
     game: &ParityGame,
-) -> (
+) -> Result<(
     Vec<usize>,
     Vec<usize>,
     Vec<Option<usize>>,
     Vec<Option<usize>>,
-) {
+), String> {
     let nodes = game.num_nodes();
-    let mut in_game = vec![true; nodes];
+    let mut in_game: Vec<bool> = vec![true; nodes];
     let mut winner: Vec<Option<usize>> = vec![None; nodes];
-    let mut strat0 = vec![None; nodes];
-    let mut strat1 = vec![None; nodes];
+    let mut strat0: Vec<Option<usize>> = vec![None; nodes];
+    let mut strat1: Vec<Option<usize>> = vec![None; nodes];
     let mut tangles: Vec<Tangle> = Vec::new();
-
+    
     while in_game.iter().any(|&x| x) {
         let new_tangles = search(game, &tangles, &in_game);
 
-        if new_tangles.is_empty() {
-            let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
-            mark_winner(&mut winner, &mut in_game, &rw0, 0);
-            mark_winner(&mut winner, &mut in_game, &rw1, 1);
-            merge_strategy(&mut strat0, &rs0, 0, game);
-            merge_strategy(&mut strat1, &rs1, 1, game);
-            break;
-        }
-
         let mut dominions = Vec::new();
+        let mut learned_new_tangle = false;
+
         for t in new_tangles {
             if t.escapes.is_empty() {
                 dominions.push(t);
             } else {
-                tangles.push(t);
+                let exists = tangles.iter().any(|existing| {
+                    existing.player == t.player && existing.nodes == t.nodes
+                });
+                
+                if !exists {
+                    tangles.push(t);
+                    learned_new_tangle = true;
+                }
             }
         }
-
+        
         if dominions.is_empty() {
-            let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
-            mark_winner(&mut winner, &mut in_game, &rw0, 0);
-            mark_winner(&mut winner, &mut in_game, &rw1, 1);
-            merge_strategy(&mut strat0, &rs0, 0, game);
-            merge_strategy(&mut strat1, &rs1, 1, game);
-            break;
+            if !learned_new_tangle {
+                let (rw0, rw1, rs0, rs1) = zielonka_fallback(game, &in_game);
+                mark_winner(&mut winner, &mut in_game, &rw0, 0);
+                mark_winner(&mut winner, &mut in_game, &rw1, 1);
+                merge_strategy(&mut strat0, &rs0, 0, game);
+                merge_strategy(&mut strat1, &rs1, 1, game);
+                break;
+            }
+            continue;
         }
 
         let escape_map0 = build_escape_map(nodes, &tangles, 0);
@@ -112,7 +115,7 @@ fn tangle_learning(
         }
     }
 
-    (w0, w1, strat0, strat1)
+    Ok((w0, w1, strat0, strat1))
 }
 
 fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle> {
@@ -134,10 +137,6 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
         alpha,
         &sigma_init,
     );
-
-    if z.is_empty() {
-        return Vec::new();
-    }
 
     let mut in_z = vec![false; game.num_nodes()];
     for &v in &z {
@@ -196,31 +195,35 @@ fn tangle_attract(
 
     while let Some(v) = queue.pop_front() {
         for &pred in game.get_predecessors(v) {
-            if !in_game[pred] || in_z[pred] {
+            if !in_game[pred] {
                 continue;
             }
 
-            let can_attract = if game.get_owner(pred) == player {
-                true
-            } else {
-                game.get_successors(pred)
-                    .iter()
-                    .filter(|&&s| in_game[s])
-                    .all(|&s| in_z[s])
-            };
+            if !in_z[pred] {
+                let can_attract = if game.get_owner(pred) == player {
+                    true
+                } else {
+                    game.get_successors(pred)
+                        .iter()
+                        .filter(|&&s| in_game[s])
+                        .all(|&s| in_z[s])
+                };
 
-            if can_attract {
-                in_z[pred] = true;
-                queue.push_back(pred);
-                if game.get_owner(pred) == player && sigma[pred].is_none() {
-                    sigma[pred] = Some(v);
+                if can_attract {
+                    in_z[pred] = true;
+                    queue.push_back(pred);
                 }
+            }
+            
+            if in_z[pred] && game.get_owner(pred) == player && sigma[pred].is_none() {
+                sigma[pred] = Some(v);
             }
         }
 
         for &tidx in &escape_map[v] {
             let tangle = &tangles[tidx];
-            if !tangle.nodes.iter().all(|&u| in_game[u] || in_z[u]) {
+            
+            if !tangle.nodes.iter().all(|&u| in_game[u]) {
                 continue;
             }
             if !tangle.escapes.iter().all(|&e| in_z[e]) {
@@ -232,15 +235,11 @@ fn tangle_attract(
                     in_z[u] = true;
                     queue.push_back(u);
                 }
-            }
-
-            for (idx, entry) in tangle.strategy.iter().enumerate() {
-                if in_z[idx]
-                    && entry.is_some()
-                    && sigma[idx].is_none()
-                    && game.get_owner(idx) == player
-                {
-                    sigma[idx] = *entry;
+                
+                if game.get_owner(u) == player {
+                    if let Some(strat_succ) = tangle.strategy[u] {
+                        sigma[u] = Some(strat_succ);
+                    }
                 }
             }
         }
