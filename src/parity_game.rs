@@ -136,19 +136,11 @@ impl Clone for ParityGame {
 }
 
 impl ParityGame {
-    pub fn sccs(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-    ) -> Vec<Vec<usize>> {
+    pub fn sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
         self.tarjan_sccs(in_region, sigma)
     }
 
-    pub fn bottom_sccs(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-    ) -> Vec<Vec<usize>> {
+    pub fn bottom_sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
         self.sccs(in_region, sigma)
             .into_iter()
             .filter(|scc| self.is_nontrivial_scc(scc))
@@ -156,11 +148,7 @@ impl ParityGame {
             .collect()
     }
 
-    fn tarjan_sccs(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-    ) -> Vec<Vec<usize>> {
+    fn tarjan_sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
         let mut index = vec![None; self.nodes];
         let mut lowlink = vec![0; self.nodes];
         let mut on_stack = vec![false; self.nodes];
@@ -257,12 +245,7 @@ impl ParityGame {
                 .collect(),
         }
     }
-    fn is_bottom_scc(
-        &self,
-        scc: &[usize],
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-    ) -> bool {
+    fn is_bottom_scc(&self, scc: &[usize], in_region: &[bool], sigma: &[Option<usize>]) -> bool {
         let mut in_scc = vec![false; self.nodes];
         for &v in scc {
             in_scc[v] = true;
@@ -279,10 +262,7 @@ impl ParityGame {
         true
     }
 
-    fn is_nontrivial_scc(
-        &self,
-        scc: &[usize],
-    ) -> bool {
+    fn is_nontrivial_scc(&self, scc: &[usize]) -> bool {
         if scc.len() > 1 {
             return true;
         }

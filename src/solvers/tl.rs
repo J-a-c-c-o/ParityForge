@@ -18,19 +18,22 @@ pub fn run_tl(
 
 fn tangle_learning(
     game: &ParityGame,
-) -> Result<(
-    Vec<usize>,
-    Vec<usize>,
-    Vec<Option<usize>>,
-    Vec<Option<usize>>,
-), String> {
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     let nodes = game.num_nodes();
     let mut in_game: Vec<bool> = vec![true; nodes];
     let mut winner: Vec<Option<usize>> = vec![None; nodes];
     let mut strat0: Vec<Option<usize>> = vec![None; nodes];
     let mut strat1: Vec<Option<usize>> = vec![None; nodes];
     let mut tangles: Vec<Tangle> = Vec::new();
-    
+
     while in_game.iter().any(|&x| x) {
         let new_tangles = search(game, &tangles, &in_game);
 
@@ -41,17 +44,17 @@ fn tangle_learning(
             if t.escapes.is_empty() {
                 dominions.push(t);
             } else {
-                let exists = tangles.iter().any(|existing| {
-                    existing.player == t.player && existing.nodes == t.nodes
-                });
-                
+                let exists = tangles
+                    .iter()
+                    .any(|existing| existing.player == t.player && existing.nodes == t.nodes);
+
                 if !exists {
                     tangles.push(t);
                     learned_new_tangle = true;
                 }
             }
         }
-        
+
         if dominions.is_empty() {
             if !learned_new_tangle {
                 return Err("No new tangles learned and no dominions found, but game is not solved. This should not happen.".to_string());
@@ -118,7 +121,11 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
     let mut decomposed = vec![false; nodes];
     let mut all_extracted_tangles = Vec::new();
 
-    while in_game.iter().zip(&decomposed).any(|(&in_g, &dec)| in_g && !dec) {
+    while in_game
+        .iter()
+        .zip(&decomposed)
+        .any(|(&in_g, &dec)| in_g && !dec)
+    {
         let mut max_prio = 0;
         let mut has_nodes = false;
         for v in 0..nodes {
@@ -161,14 +168,14 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
         );
 
         let extracted = extract_tangles_from_region(game, &z, &sigma, alpha, &in_g_prime, in_game);
-        
+
         let mut found_dominion = false;
         for t in &extracted {
             if t.escapes.is_empty() {
                 found_dominion = true;
             }
         }
-        
+
         all_extracted_tangles.extend(extracted);
 
         if found_dominion {
@@ -315,7 +322,7 @@ fn tangle_attract(
                     queue.push_back(pred);
                 }
             }
-            
+
             if in_z[pred] && game.get_owner(pred) == player && sigma[pred].is_none() {
                 sigma[pred] = Some(v);
             }
@@ -323,12 +330,17 @@ fn tangle_attract(
 
         for &tidx in &escape_map[v] {
             let tangle = &tangles[tidx];
-            
+
             if !tangle.nodes.iter().all(|&u| in_game[u]) {
                 continue;
             }
-            
-            if !tangle.escapes.iter().filter(|&&e| in_game[e]).all(|&e| in_z[e]) {
+
+            if !tangle
+                .escapes
+                .iter()
+                .filter(|&&e| in_game[e])
+                .all(|&e| in_z[e])
+            {
                 continue;
             }
 
@@ -337,7 +349,7 @@ fn tangle_attract(
                     in_z[u] = true;
                     queue.push_back(u);
                 }
-                
+
                 if game.get_owner(u) == player {
                     if let Some(strat_succ) = tangle.strategy[u] {
                         sigma[u] = Some(strat_succ);
@@ -357,7 +369,12 @@ fn tangle_attract(
     (z, sigma)
 }
 
-fn build_escape_map(nodes: usize, tangles: &[Tangle], player: usize, in_region: &[bool]) -> Vec<Vec<usize>> {
+fn build_escape_map(
+    nodes: usize,
+    tangles: &[Tangle],
+    player: usize,
+    in_region: &[bool],
+) -> Vec<Vec<usize>> {
     let mut map = vec![Vec::new(); nodes];
     for (idx, t) in tangles.iter().enumerate() {
         if t.player != player {
@@ -395,7 +412,12 @@ fn merge_strategy(
     }
 }
 
-fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize, in_game: &[bool]) -> Vec<usize> {
+fn collect_dominion_nodes(
+    dominions: &[Tangle],
+    player: usize,
+    nodes: usize,
+    in_game: &[bool],
+) -> Vec<usize> {
     let mut in_set = vec![false; nodes];
     for t in dominions.iter().filter(|t| t.player == player) {
         for &v in &t.nodes {

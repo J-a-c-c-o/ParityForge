@@ -406,7 +406,9 @@ fn run_test_command(
             }
 
             // Clean up the temporary input file
-            if !external_commands.is_empty() && let Err(e) = std::fs::remove_file(&input_file) {
+            if !external_commands.is_empty()
+                && let Err(e) = std::fs::remove_file(&input_file)
+            {
                 eprintln!(
                     "Warning: Failed to remove temporary file '{}': {}",
                     input_file.display(),
@@ -561,13 +563,9 @@ fn solve_game(
     String,
 > {
     match algorithm {
-        "default" | "zlk" => {
-            run_zielonka(game)
-        }
+        "default" | "zlk" => run_zielonka(game),
         "fpi" => run_fpi(game),
-        "tl" => {
-            run_tl(game)
-        }
+        "tl" => run_tl(game),
         "spm" => run_spm(game),
         "si" => run_si(game),
         _ => {
@@ -576,7 +574,6 @@ fn solve_game(
         }
     }
 }
-
 
 fn collect_pg_inputs(path: &Path) -> Result<Vec<PathBuf>, String> {
     let metadata = std::fs::metadata(path)
