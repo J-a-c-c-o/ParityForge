@@ -5,7 +5,7 @@ mod verifier;
 
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
-use crate::solvers::{run_external_solver, run_fpi, run_si, run_spm, run_tl, run_zielonka};
+use crate::solvers::{run_external_solver, run_fpi, run_si, run_spm, run_tl, run_zielonka, run_unoptimized_zielonka};
 use crate::verifier::verify_solution;
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
@@ -124,6 +124,7 @@ fn main() {
 fn run_solve_command(input: &str, output: &str, algorithm: &str) {
     match algorithm {
         "default" | "zlk" => zielonka(input, output),
+        "uzlk" => unoptimized_zielonka(input, output),
         "fpi" => fpi(input, output),
         "tl" => tl(input, output),
         "spm" => spm(input, output),
@@ -148,6 +149,7 @@ fn run_test_command(
     let algorithms = if algorithms.is_empty() && external_commands.is_empty() {
         vec![
             String::from("zlk"),
+            String::from("uzlk"),
             String::from("fpi"),
             String::from("tl"),
             String::from("spm"),
@@ -544,6 +546,15 @@ fn zielonka(input: &str, output_file: &str) {
     );
 }
 
+fn unoptimized_zielonka(input: &str, output_file: &str) {
+    run_algorithm(
+        input,
+        output_file,
+        run_unoptimized_zielonka,
+        "Unoptimized Zielonka's Recursive Algorithm",
+    );
+}
+
 fn fpi(input: &str, output_file: &str) {
     run_algorithm(
         input,
@@ -584,6 +595,7 @@ fn solve_game(
 > {
     match algorithm {
         "default" | "zlk" => run_zielonka(game),
+        "uzlk" => run_unoptimized_zielonka(game),
         "fpi" => run_fpi(game),
         "tl" => run_tl(game),
         "spm" => run_spm(game),
