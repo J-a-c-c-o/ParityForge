@@ -59,11 +59,11 @@ fn tangle_learning(
             continue;
         }
 
-        let escape_map0 = build_escape_map(nodes, &tangles, 0);
-        let escape_map1 = build_escape_map(nodes, &tangles, 1);
+        let escape_map0 = build_escape_map(nodes, &tangles, 0, &in_game);
+        let escape_map1 = build_escape_map(nodes, &tangles, 1, &in_game);
 
         for player in [0usize, 1usize] {
-            let dominion_nodes = collect_dominion_nodes(&dominions, player, nodes);
+            let dominion_nodes = collect_dominion_nodes(&dominions, player, nodes, &in_game);
             if dominion_nodes.is_empty() {
                 continue;
             }
@@ -114,66 +114,164 @@ fn tangle_learning(
 }
 
 fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle> {
-    if !in_game.iter().any(|&x| x) {
-        return Vec::new();
+    let nodes = game.num_nodes();
+    let mut decomposed = vec![false; nodes];
+    let mut all_extracted_tangles = Vec::new();
+
+    while in_game.iter().zip(&decomposed).any(|(&in_g, &dec)| in_g && !dec) {
+        let mut max_prio = 0;
+        let mut has_nodes = false;
+        for v in 0..nodes {
+            if in_game[v] && !decomposed[v] {
+                let prio = game.get_priority(v);
+                if !has_nodes || prio > max_prio {
+                    max_prio = prio;
+                    has_nodes = true;
+                }
+            }
+        }
+        if !has_nodes {
+            break;
+        }
+
+        let alpha = max_prio % 2;
+
+        let mut targets = Vec::new();
+        for v in 0..nodes {
+            if in_game[v] && !decomposed[v] && game.get_priority(v) == max_prio {
+                targets.push(v);
+            }
+        }
+
+        let mut in_g_prime = vec![false; nodes];
+        for v in 0..nodes {
+            in_g_prime[v] = in_game[v] && !decomposed[v];
+        }
+
+        let sigma_init = vec![None; nodes];
+        let escape_map = build_escape_map(nodes, tangles, alpha, &in_g_prime);
+        let (z, sigma) = tangle_attract(
+            game,
+            tangles,
+            &escape_map,
+            &in_g_prime,
+            &targets,
+            alpha,
+            &sigma_init,
+        );
+
+        let extracted = extract_tangles_from_region(game, &z, &sigma, alpha, &in_g_prime, in_game);
+        
+        let mut found_dominion = false;
+        for t in &extracted {
+            if t.escapes.is_empty() {
+                found_dominion = true;
+            }
+        }
+        
+        all_extracted_tangles.extend(extracted);
+
+        if found_dominion {
+            break;
+        }
+
+        for &v in &z {
+            decomposed[v] = true;
+        }
     }
 
-    let (p, alpha) = highest_priority(game, in_game);
-    let targets = nodes_with_priority(game, in_game, p);
+    all_extracted_tangles
+}
 
-    let sigma_init = vec![None; game.num_nodes()];
-    let escape_map = build_escape_map(game.num_nodes(), tangles, alpha);
-    let (z, sigma) = tangle_attract(
-        game,
-        tangles,
-        &escape_map,
-        in_game,
-        &targets,
-        alpha,
-        &sigma_init,
-    );
-
-    let mut in_z = vec![false; game.num_nodes()];
-    for &v in &z {
+fn extract_tangles_from_region(
+    game: &ParityGame,
+    z: &[usize],
+    sigma: &[Option<usize>],
+    alpha: usize,
+    in_g_prime: &[bool],
+    in_game: &[bool],
+) -> Vec<Tangle> {
+    let nodes = game.num_nodes();
+    let mut in_z = vec![false; nodes];
+    for &v in z {
         in_z[v] = true;
     }
 
-    let mut closed = true;
-    for &v in &z {
-        if game.get_owner(v) == alpha {
+    let mut keep = in_z.clone();
+    let mut queue = VecDeque::new();
+
+    for &v in z {
+        let escapes = if game.get_owner(v) == alpha {
             if let Some(succ) = sigma[v] {
-                if !in_z[succ] {
-                    closed = false;
-                    break;
-                }
+                in_g_prime[succ] && !in_z[succ]
             } else {
-                closed = false;
-                break;
+                true
             }
         } else {
-            let has_escape = game.get_successors(v)
+            game.get_successors(v)
                 .iter()
-                .any(|&succ| in_game[succ] && !in_z[succ]);
-            if has_escape {
-                closed = false;
-                break;
+                .any(|&succ| in_g_prime[succ] && !in_z[succ])
+        };
+
+        if escapes {
+            keep[v] = false;
+            queue.push_back(v);
+        }
+    }
+
+    while let Some(u) = queue.pop_front() {
+        for &pred in game.get_predecessors(u) {
+            if keep[pred] {
+                let now_escapes = if game.get_owner(pred) == alpha {
+                    sigma[pred] == Some(u)
+                } else {
+                    true
+                };
+
+                if now_escapes {
+                    keep[pred] = false;
+                    queue.push_back(pred);
+                }
             }
         }
     }
 
-    let mut next_game = in_game.to_vec();
-    for &v in &z {
-        next_game[v] = false;
+    let sccs = game.bottom_sccs(&keep, sigma);
+    let mut tangles = Vec::new();
+
+    for scc in sccs {
+        let mut t_strat = vec![None; nodes];
+        for &v in &scc {
+            if game.get_owner(v) == alpha {
+                t_strat[v] = sigma[v];
+            }
+        }
+
+        let mut in_scc = vec![false; nodes];
+        for &v in &scc {
+            in_scc[v] = true;
+        }
+
+        let mut escapes = HashSet::new();
+        for &u in &scc {
+            if game.get_owner(u) != alpha {
+                for &succ in game.get_successors(u) {
+                    if in_game[succ] && !in_scc[succ] {
+                        escapes.insert(succ);
+                    }
+                }
+            }
+        }
+
+        tangles.push(Tangle {
+            nodes: scc,
+            player: alpha,
+            strategy: t_strat,
+            escapes: escapes.into_iter().collect(),
+        });
     }
 
-    if closed {
-        let mut result = search(game, tangles, &next_game);
-        let mut bottoms = bottom_sccs(game, &z, &sigma, alpha);
-        result.append(&mut bottoms);
-        result
-    } else {
-        search(game, tangles, &next_game)
-    }
+    tangles
 }
 
 fn tangle_attract(
@@ -229,7 +327,8 @@ fn tangle_attract(
             if !tangle.nodes.iter().all(|&u| in_game[u]) {
                 continue;
             }
-            if !tangle.escapes.iter().all(|&e| in_z[e]) {
+            
+            if !tangle.escapes.iter().filter(|&&e| in_game[e]).all(|&e| in_z[e]) {
                 continue;
             }
 
@@ -258,79 +357,16 @@ fn tangle_attract(
     (z, sigma)
 }
 
-fn bottom_sccs(
-    game: &ParityGame,
-    region: &[usize],
-    sigma: &[Option<usize>],
-    player: usize,
-) -> Vec<Tangle> {
-    let mut in_region = vec![false; game.num_nodes()];
-    for &v in region {
-        in_region[v] = true;
-    }
-
-    let sccs = game.bottom_sccs(&in_region, sigma);
-    let mut tangles = Vec::new();
-
-    for scc in sccs {
-        let mut strategy = vec![None; game.num_nodes()];
-        for &v in &scc {
-            if game.get_owner(v) == player {
-                strategy[v] = sigma[v];
-            }
-        }
-
-        let escapes = compute_escapes(game, &scc, player, &strategy);
-
-        tangles.push(Tangle {
-            nodes: scc,
-            player,
-            strategy,
-            escapes,
-        });
-    }
-
-    tangles
-}
-
-fn compute_escapes(
-    game: &ParityGame,
-    nodes: &[usize],
-    player: usize,
-    strategy: &[Option<usize>],
-) -> Vec<usize> {
-    let mut in_nodes = vec![false; game.num_nodes()];
-    for &v in nodes {
-        in_nodes[v] = true;
-    }
-
-    let mut escapes = HashSet::new();
-    for &v in nodes {
-        if game.get_owner(v) == player {
-            if let Some(succ) = strategy[v]
-                && !in_nodes[succ]
-            {
-                escapes.insert(succ);
-            }
-        } else {
-            for &succ in game.get_successors(v) {
-                if !in_nodes[succ] {
-                    escapes.insert(succ);
-                }
-            }
-        }
-    }
-
-    escapes.into_iter().collect()
-}
-
-fn build_escape_map(nodes: usize, tangles: &[Tangle], player: usize) -> Vec<Vec<usize>> {
+fn build_escape_map(nodes: usize, tangles: &[Tangle], player: usize, in_region: &[bool]) -> Vec<Vec<usize>> {
     let mut map = vec![Vec::new(); nodes];
     for (idx, t) in tangles.iter().enumerate() {
         if t.player != player {
             continue;
         }
         for &e in &t.escapes {
+            if !in_region[e] {
+                continue;
+            }
             if e < nodes {
                 map[e].push(idx);
             }
@@ -359,7 +395,7 @@ fn merge_strategy(
     }
 }
 
-fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize) -> Vec<usize> {
+fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize, in_game: &[bool]) -> Vec<usize> {
     let mut in_set = vec![false; nodes];
     for t in dominions.iter().filter(|t| t.player == player) {
         for &v in &t.nodes {
@@ -369,30 +405,11 @@ fn collect_dominion_nodes(dominions: &[Tangle], player: usize, nodes: usize) -> 
 
     let mut result = Vec::new();
     for v in 0..nodes {
-        if in_set[v] {
+        if in_set[v] && in_game[v] {
             result.push(v);
         }
     }
     result
-}
-
-fn highest_priority(game: &ParityGame, in_game: &[bool]) -> (usize, usize) {
-    let max_prio = game
-        .get_nodes()
-        .into_iter()
-        .filter(|&v| in_game[v])
-        .map(|v| game.get_priority(v))
-        .max()
-        .unwrap_or(0);
-
-    (max_prio, max_prio % 2)
-}
-
-fn nodes_with_priority(game: &ParityGame, in_game: &[bool], prio: usize) -> Vec<usize> {
-    game.get_nodes_with_priority(prio)
-        .into_iter()
-        .filter(|&v| in_game[v])
-        .collect()
 }
 
 #[derive(Clone)]
