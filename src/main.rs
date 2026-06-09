@@ -207,8 +207,10 @@ fn run_test_command(
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
                         println!(
-                            "[ok] {} via {} in {:.2?}",
+                            "[ok] {} (size: {},{}) via {} in {:.2?}",
                             path.display(),
+                            game.num_nodes(),
+                            game.num_edges(),
                             algorithm,
                             duration
                         );
@@ -243,8 +245,10 @@ fn run_test_command(
                         match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                             Ok(()) => {
                                 println!(
-                                    "[ok] {} via external '{}' in {:.2?}",
+                                    "[ok] {} (size: {},{}) via external '{}' in {:.2?}",
                                     path.display(),
+                                    game.num_nodes(),
+                                    game.num_edges(),
                                     external_command,
                                     duration
                                 );
@@ -252,8 +256,10 @@ fn run_test_command(
                             Err(e) => {
                                 failures += 1;
                                 eprintln!(
-                                    "[fail] {} via external '{}': {} in {:.2?}",
+                                    "[fail] {} (size: {},{}) via external '{}': {} in {:.2?}",
                                     path.display(),
+                                    game.num_nodes(),
+                                    game.num_edges(),
                                     external_command,
                                     e,
                                     duration
@@ -264,8 +270,10 @@ fn run_test_command(
                     Err(e) => {
                         failures += 1;
                         eprintln!(
-                            "[fail] {} via external '{}': {} in {:.2?}",
+                            "[fail] {} (size: {},{}) via external '{}': {} in {:.2?}",
                             path.display(),
+                            game.num_nodes(),
+                            game.num_edges(),
                             external_command,
                             e,
                             duration
@@ -306,8 +314,10 @@ fn run_test_command(
                     Err(e) => {
                         failures += 1;
                         eprintln!(
-                            "[fail] random game #{} via {}: Error running algorithm: {} in {:.2?}",
+                            "[fail] random game #{} (size: {},{}) via {}: Error running algorithm: {} in {:.2?}",
                             i + 1,
+                            game.num_nodes(),
+                            game.num_edges(),
                             algorithm,
                             e,
                             duration
@@ -318,8 +328,10 @@ fn run_test_command(
                 match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                     Ok(()) => {
                         println!(
-                            "[ok] random game #{} via {} in {:.2?}",
+                            "[ok] random game #{} (size: {},{}) via {} in {:.2?}",
                             i + 1,
+                            game.num_nodes(),
+                            game.num_edges(),
                             algorithm,
                             duration
                         );
@@ -327,8 +339,10 @@ fn run_test_command(
                     Err(e) => {
                         failures += 1;
                         eprintln!(
-                            "[fail] random game #{} via {}: {} in {:.2?}",
+                            "[fail] random game #{} (size: {},{}) via {}: {} in {:.2?}",
                             i + 1,
+                            game.num_nodes(),
+                            game.num_edges(),
                             algorithm,
                             e,
                             duration
@@ -365,8 +379,10 @@ fn run_test_command(
                         match verify_solution(&game, &w0, &w1, &strat0, &strat1) {
                             Ok(()) => {
                                 println!(
-                                    "[ok] random game #{} via external '{}' in {:.2?}",
+                                    "[ok] random game #{} (size: {},{}) via external '{}' in {:.2?}",
                                     i + 1,
+                                    game.num_nodes(),
+                                    game.num_edges(),
                                     external_command,
                                     duration
                                 );
@@ -374,8 +390,10 @@ fn run_test_command(
                             Err(e) => {
                                 failures += 1;
                                 eprintln!(
-                                    "[fail] random game #{} via external '{}': {} in {:.2?}",
+                                    "[fail] random game #{} (size: {},{}) via external '{}': {} in {:.2?}",
                                     i + 1,
+                                    game.num_nodes(),
+                                    game.num_edges(),
                                     external_command,
                                     e,
                                     duration
@@ -386,8 +404,10 @@ fn run_test_command(
                     Err(e) => {
                         failures += 1;
                         eprintln!(
-                            "[fail] random game #{} via external '{}': {} in {:.2?}",
+                            "[fail] random game #{} (size: {},{}) via external '{}': {} in {:.2?}",
                             i + 1,
+                            game.num_nodes(),
+                            game.num_edges(),
                             external_command,
                             e,
                             duration

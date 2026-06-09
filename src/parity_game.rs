@@ -107,6 +107,10 @@ impl ParityGame {
         self.nodes
     }
 
+    pub fn num_edges(&self) -> usize {
+        self.successors.iter().map(|v| v.len()).sum()
+    }
+
     pub fn remove_bad_self_loops(&mut self) {
         for node in 0..self.nodes {
             if self.successors[node].contains(&node)
