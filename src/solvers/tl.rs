@@ -147,6 +147,18 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
                     break;
                 }
             } else {
+                if let Some(succ) = sigma[v] {
+                    if !in_z[succ] {
+                        closed = false;
+                        break;
+                    }
+                }
+            }
+        } else {
+            let has_escape = game.get_successors(v)
+                .iter()
+                .any(|&succ| in_game[succ] && !in_z[succ]);
+            if has_escape {
                 closed = false;
                 break;
             }
