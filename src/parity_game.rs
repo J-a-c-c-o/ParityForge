@@ -287,7 +287,8 @@ impl ParityGame {
             return true;
         }
 
-        false
+        let node = scc[0];
+        self.successors[node].contains(&node)
     }
 
     fn successors_from_strategy<'a>(
