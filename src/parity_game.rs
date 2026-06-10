@@ -123,6 +123,13 @@ impl ParityGame {
             }
         }
     }
+
+    pub fn sort_successors_predecessors(&mut self) {
+        for node in 0..self.nodes {
+            self.successors[node].sort_by_key(|&succ| self.priorities[succ]);
+            self.predecessors[node].sort_by_key(|&pred| self.priorities[pred]);
+        }
+    }
 }
 
 impl Clone for ParityGame {
@@ -412,6 +419,7 @@ impl ParityGameBuilder {
         }
 
         game.remove_bad_self_loops();
+        game.sort_successors_predecessors();
 
         game
     }
