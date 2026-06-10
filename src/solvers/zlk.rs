@@ -207,7 +207,9 @@ pub fn attract(
                                 Ordering::Relaxed,
                             ) {
                                 Ok(_) => {
-                                    if current_deg == 1 && !in_attractor[predecessor].swap(true, Ordering::SeqCst) {
+                                    if current_deg == 1
+                                        && !in_attractor[predecessor].swap(true, Ordering::SeqCst)
+                                    {
                                         local_next.push(predecessor);
                                     }
                                     break;

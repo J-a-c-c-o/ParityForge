@@ -471,7 +471,10 @@ fn merge_strategy_from_z(
     game: &ParityGame,
 ) {
     for &idx in z {
-        if let Some(entry) = source[idx] && target[idx].is_none() && game.get_owner(idx) == player {
+        if let Some(entry) = source[idx]
+            && target[idx].is_none()
+            && game.get_owner(idx) == player
+        {
             target[idx] = Some(entry);
         }
     }

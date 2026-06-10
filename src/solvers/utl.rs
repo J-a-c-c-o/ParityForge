@@ -357,7 +357,9 @@ fn tangle_attract(
                                 final_in_z[u] = true;
                                 queue.push_back(u);
                             }
-                            if game.get_owner(u) == player && let Some(strat_succ) = tangle.strategy[u] {
+                            if game.get_owner(u) == player
+                                && let Some(strat_succ) = tangle.strategy[u]
+                            {
                                 sigma[u] = Some(strat_succ);
                             }
                         }
@@ -416,7 +418,10 @@ fn merge_strategy_from_z(
     game: &ParityGame,
 ) {
     for &idx in z {
-        if let Some(entry) = source[idx] && target[idx].is_none() && game.get_owner(idx) == player {
+        if let Some(entry) = source[idx]
+            && target[idx].is_none()
+            && game.get_owner(idx) == player
+        {
             target[idx] = Some(entry);
         }
     }
