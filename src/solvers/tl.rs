@@ -1,7 +1,7 @@
 use crate::parity_game::ParityGame;
 
-use std::collections::VecDeque;
 use rayon::prelude::*;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[derive(Clone)]
@@ -86,7 +86,11 @@ fn tangle_learning(
                 }
             }
 
-            let escape_map = if player == 0 { &escape_map0 } else { &escape_map1 };
+            let escape_map = if player == 0 {
+                &escape_map0
+            } else {
+                &escape_map1
+            };
             let (z_plus, sigma_plus) = tangle_attract(
                 game,
                 &tangles,
@@ -131,7 +135,7 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
     while remaining_to_decompose > 0 {
         let mut max_prio = 0;
         let mut has_nodes = false;
-        
+
         for v in 0..nodes {
             if in_game[v] && !decomposed[v] {
                 let prio = game.get_priority(v);
@@ -289,9 +293,7 @@ fn tangle_attract(
 ) -> (Vec<usize>, Vec<Option<usize>>) {
     let num_nodes = game.num_nodes();
 
-    let in_z: Vec<AtomicBool> = (0..num_nodes)
-        .map(|_| AtomicBool::new(false))
-        .collect();
+    let in_z: Vec<AtomicBool> = (0..num_nodes).map(|_| AtomicBool::new(false)).collect();
 
     let sigma: Vec<AtomicUsize> = sigma_init
         .iter()
@@ -302,7 +304,11 @@ fn tangle_attract(
         .into_par_iter()
         .map(|u| {
             if game.get_owner(u) != player {
-                let count = game.get_successors(u).iter().filter(|&&s| in_game[s]).count();
+                let count = game
+                    .get_successors(u)
+                    .iter()
+                    .filter(|&&s| in_game[s])
+                    .count();
                 AtomicUsize::new(count)
             } else {
                 AtomicUsize::new(0)
@@ -357,10 +363,8 @@ fn tangle_attract(
                         old_deg == 1
                     };
 
-                    if can_attract {
-                        if !in_z[pred].swap(true, Ordering::SeqCst) {
-                            local_newly_attracted.push(pred);
-                        }
+                    if can_attract && !in_z[pred].swap(true, Ordering::SeqCst) {
+                        local_newly_attracted.push(pred);
                     }
 
                     if game.get_owner(pred) == player {
@@ -442,7 +446,12 @@ fn build_escape_map(
     map
 }
 
-fn mark_winner(winner: &mut [Option<usize>], in_game: &mut [bool], nodes: &[usize], player: usize) -> usize {
+fn mark_winner(
+    winner: &mut [Option<usize>],
+    in_game: &mut [bool],
+    nodes: &[usize],
+    player: usize,
+) -> usize {
     let mut removed = 0;
     for &v in nodes {
         if in_game[v] {
@@ -462,10 +471,8 @@ fn merge_strategy_from_z(
     game: &ParityGame,
 ) {
     for &idx in z {
-        if let Some(entry) = source[idx] {
-            if target[idx].is_none() && game.get_owner(idx) == player {
-                target[idx] = Some(entry);
-            }
+        if let Some(entry) = source[idx] && target[idx].is_none() && game.get_owner(idx) == player {
+            target[idx] = Some(entry);
         }
     }
 }

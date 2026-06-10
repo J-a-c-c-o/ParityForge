@@ -5,7 +5,10 @@ mod verifier;
 
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
-use crate::solvers::{run_external_solver, run_fpi, run_si, run_spm, run_tl, run_zielonka, run_unoptimized_zielonka, run_utl};
+use crate::solvers::{
+    run_external_solver, run_fpi, run_si, run_spm, run_tl, run_unoptimized_zielonka, run_utl,
+    run_zielonka,
+};
 use crate::verifier::verify_solution;
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
@@ -571,7 +574,12 @@ fn tl(input: &str, output_file: &str) {
 }
 
 fn utl(input: &str, output_file: &str) {
-    run_algorithm(input, output_file, run_utl, "Unoptimized Tangle Learning Algorithm");
+    run_algorithm(
+        input,
+        output_file,
+        run_utl,
+        "Unoptimized Tangle Learning Algorithm",
+    );
 }
 
 fn spm(input: &str, output_file: &str) {

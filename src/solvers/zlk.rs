@@ -133,7 +133,6 @@ fn merge_strategy(target: &mut [Option<usize>], source: &[Option<usize>]) {
     }
 }
 
-
 pub fn attract(
     game: &ParityGame,
     excluded: &[bool],
@@ -159,9 +158,7 @@ pub fn attract(
         })
         .collect();
 
-    let in_attractor: Vec<AtomicBool> = (0..nodes)
-        .map(|_| AtomicBool::new(false))
-        .collect();
+    let in_attractor: Vec<AtomicBool> = (0..nodes).map(|_| AtomicBool::new(false)).collect();
 
     let atomic_strategy: Vec<AtomicUsize> = strategy
         .into_iter()
@@ -170,10 +167,8 @@ pub fn attract(
 
     let mut frontier: Vec<usize> = Vec::new();
     for &node in nodes_to_attract {
-        if !excluded[node] {
-            if !in_attractor[node].swap(true, Ordering::Relaxed) {
-                frontier.push(node);
-            }
+        if !excluded[node] && !in_attractor[node].swap(true, Ordering::Relaxed) {
+            frontier.push(node);
         }
     }
 
@@ -212,10 +207,8 @@ pub fn attract(
                                 Ordering::Relaxed,
                             ) {
                                 Ok(_) => {
-                                    if current_deg == 1 {
-                                        if !in_attractor[predecessor].swap(true, Ordering::SeqCst) {
-                                            local_next.push(predecessor);
-                                        }
+                                    if current_deg == 1 && !in_attractor[predecessor].swap(true, Ordering::SeqCst) {
+                                        local_next.push(predecessor);
                                     }
                                     break;
                                 }
@@ -241,11 +234,7 @@ pub fn attract(
         .into_iter()
         .map(|atom| {
             let val = atom.into_inner();
-            if val == usize::MAX {
-                None
-            } else {
-                Some(val)
-            }
+            if val == usize::MAX { None } else { Some(val) }
         })
         .collect();
 

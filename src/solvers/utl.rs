@@ -84,7 +84,11 @@ fn tangle_learning(
                 }
             }
 
-            let escape_map = if player == 0 { &escape_map0 } else { &escape_map1 };
+            let escape_map = if player == 0 {
+                &escape_map0
+            } else {
+                &escape_map1
+            };
             let (z_plus, sigma_plus) = tangle_attract(
                 game,
                 &tangles,
@@ -129,7 +133,7 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
     while remaining_to_decompose > 0 {
         let mut max_prio = 0;
         let mut has_nodes = false;
-        
+
         for v in 0..nodes {
             if in_game[v] && !decomposed[v] {
                 let prio = game.get_priority(v);
@@ -293,7 +297,11 @@ fn tangle_attract(
     let mut opp_deg = vec![0; num_nodes];
     for v in 0..num_nodes {
         if in_game[v] && game.get_owner(v) != player {
-            opp_deg[v] = game.get_successors(v).iter().filter(|&&s| in_game[s]).count();
+            opp_deg[v] = game
+                .get_successors(v)
+                .iter()
+                .filter(|&&s| in_game[s])
+                .count();
         }
     }
 
@@ -349,10 +357,8 @@ fn tangle_attract(
                                 final_in_z[u] = true;
                                 queue.push_back(u);
                             }
-                            if game.get_owner(u) == player {
-                                if let Some(strat_succ) = tangle.strategy[u] {
-                                    sigma[u] = Some(strat_succ);
-                                }
+                            if game.get_owner(u) == player && let Some(strat_succ) = tangle.strategy[u] {
+                                sigma[u] = Some(strat_succ);
                             }
                         }
                     }
@@ -364,7 +370,6 @@ fn tangle_attract(
     let z = (0..num_nodes).filter(|&v| final_in_z[v]).collect();
     (z, sigma)
 }
-
 
 fn build_escape_map(
     nodes: usize,
@@ -386,7 +391,12 @@ fn build_escape_map(
     map
 }
 
-fn mark_winner(winner: &mut [Option<usize>], in_game: &mut [bool], nodes: &[usize], player: usize) -> usize {
+fn mark_winner(
+    winner: &mut [Option<usize>],
+    in_game: &mut [bool],
+    nodes: &[usize],
+    player: usize,
+) -> usize {
     let mut removed = 0;
     for &v in nodes {
         if in_game[v] {
@@ -406,10 +416,8 @@ fn merge_strategy_from_z(
     game: &ParityGame,
 ) {
     for &idx in z {
-        if let Some(entry) = source[idx] {
-            if target[idx].is_none() && game.get_owner(idx) == player {
-                target[idx] = Some(entry);
-            }
+        if let Some(entry) = source[idx] && target[idx].is_none() && game.get_owner(idx) == player {
+            target[idx] = Some(entry);
         }
     }
 }
