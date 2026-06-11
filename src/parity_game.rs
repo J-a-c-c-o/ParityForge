@@ -62,7 +62,7 @@ impl ParityGame {
     pub fn get_priority(&self, node: usize) -> usize {
         self.priorities[node]
     }
-
+    
     pub fn get_owner(&self, node: usize) -> usize {
         self.owners[node]
     }

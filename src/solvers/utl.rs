@@ -131,21 +131,16 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
     let mut all_extracted_tangles = Vec::new();
 
     while remaining_to_decompose > 0 {
-        let mut max_prio = 0;
-        let mut has_nodes = false;
-
+        let mut max_prio = None;
         for v in 0..nodes {
             if in_game[v] && !decomposed[v] {
                 let prio = game.get_priority(v);
-                if !has_nodes || prio > max_prio {
-                    max_prio = prio;
-                    has_nodes = true;
+                if max_prio.is_none() || prio > max_prio.unwrap() {
+                    max_prio = Some(prio);
                 }
             }
         }
-        if !has_nodes {
-            break;
-        }
+        let max_prio = max_prio.expect("There should be at least one node left to decompose, but none found.");
 
         let alpha = max_prio % 2;
 
