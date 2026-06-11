@@ -16,7 +16,6 @@ struct TarjanFrame {
     next_neighbor: usize,
 }
 
-#[allow(dead_code)]
 impl ParityGame {
     pub fn new(nodes: usize) -> Self {
         ParityGame {
@@ -62,10 +61,6 @@ impl ParityGame {
 
     pub fn get_priority(&self, node: usize) -> usize {
         self.priorities[node]
-    }
-
-    pub fn get_priorities(&self) -> &[usize] {
-        &self.priorities
     }
 
     pub fn get_owner(&self, node: usize) -> usize {
@@ -126,8 +121,8 @@ impl ParityGame {
 
     pub fn sort_successors_predecessors(&mut self) {
         for node in 0..self.nodes {
-            self.successors[node].sort_by_key(|&succ| self.priorities[succ]);
-            self.predecessors[node].sort_by_key(|&pred| self.priorities[pred]);
+            self.successors[node].sort_by_key(|&succ| std::cmp::Reverse(self.priorities[succ]));
+            self.predecessors[node].sort_by_key(|&pred| std::cmp::Reverse(self.priorities[pred]));
         }
     }
 }
@@ -147,19 +142,29 @@ impl Clone for ParityGame {
 }
 
 impl ParityGame {
-    pub fn sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
-        self.tarjan_sccs(in_region, sigma)
+    pub fn restricted_neighbors(
+        &self,
+        in_region: &[bool],
+        strategy: &[Option<usize>],
+        node: usize,
+        winning_player: usize,
+    ) -> Vec<usize> {
+        if self.get_owner(node) == winning_player {
+            match strategy[node] {
+                Some(succ) if in_region[succ] => vec![succ],
+                _ => Vec::new(), 
+            }
+        } else {
+            self.get_successors(node)
+                .iter()
+                .copied()
+                .filter(|&succ| in_region[succ])
+                .collect()
+        }
     }
 
-    pub fn bottom_sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
-        self.sccs(in_region, sigma)
-            .into_iter()
-            .filter(|scc| self.is_nontrivial_scc(scc))
-            .filter(|scc| self.is_bottom_scc(scc, in_region, sigma))
-            .collect()
-    }
 
-    fn tarjan_sccs(&self, in_region: &[bool], sigma: &[Option<usize>]) -> Vec<Vec<usize>> {
+    pub fn tarjan_sccs_restricted(&self, in_region: &[bool], strategy: &[Option<usize>], winning_player: usize) -> Vec<Vec<usize>> {
         let mut index = vec![None; self.nodes];
         let mut lowlink = vec![0; self.nodes];
         let mut on_stack = vec![false; self.nodes];
@@ -169,9 +174,7 @@ impl ParityGame {
         let mut sccs = Vec::new();
 
         for start in 0..self.nodes {
-            if !in_region[start] || index[start].is_some() {
-                continue;
-            }
+            if !in_region[start] || index[start].is_some() { continue; }
 
             index[start] = Some(next_index);
             lowlink[start] = next_index;
@@ -180,120 +183,51 @@ impl ParityGame {
             on_stack[start] = true;
             call_stack.push(TarjanFrame {
                 node: start,
-                neighbors: self.filtered_successors(in_region, sigma, start),
+                neighbors: self.restricted_neighbors(in_region, strategy, start, winning_player),
                 next_neighbor: 0,
             });
 
             while let Some(frame) = call_stack.last_mut() {
-                let node = frame.node;
-
+                let u = frame.node;
                 if frame.next_neighbor < frame.neighbors.len() {
-                    let next = frame.neighbors[frame.next_neighbor];
+                    let v = frame.neighbors[frame.next_neighbor];
                     frame.next_neighbor += 1;
-
-                    if index[next].is_none() {
-                        index[next] = Some(next_index);
-                        lowlink[next] = next_index;
+                    if index[v].is_none() {
+                        index[v] = Some(next_index);
+                        lowlink[v] = next_index;
                         next_index += 1;
-                        active_stack.push(next);
-                        on_stack[next] = true;
+                        active_stack.push(v);
+                        on_stack[v] = true;
                         call_stack.push(TarjanFrame {
-                            node: next,
-                            neighbors: self.filtered_successors(in_region, sigma, next),
+                            node: v,
+                            neighbors: self.restricted_neighbors(in_region, strategy, v, winning_player),
                             next_neighbor: 0,
                         });
-                    } else if on_stack[next] {
-                        lowlink[node] = std::cmp::min(
-                            lowlink[node],
-                            index[next].expect("visited node should have an index"),
-                        );
+                    } else if on_stack[v] {
+                        lowlink[u] = std::cmp::min(lowlink[u], index[v].unwrap());
                     }
                 } else {
-                    let node_index = index[node].expect("active node should have an index");
-                    if lowlink[node] == node_index {
+                    if lowlink[u] == index[u].unwrap() {
                         let mut component = Vec::new();
-
                         loop {
-                            let member = active_stack
-                                .pop()
-                                .expect("Tarjan active stack should not be empty");
+                            let member = active_stack.pop().unwrap();
                             on_stack[member] = false;
                             component.push(member);
-                            if member == node {
-                                break;
-                            }
+                            if member == u { break; }
                         }
-
                         sccs.push(component);
                     }
-
                     call_stack.pop();
-
                     if let Some(parent) = call_stack.last() {
-                        lowlink[parent.node] = std::cmp::min(lowlink[parent.node], lowlink[node]);
+                        lowlink[parent.node] = std::cmp::min(lowlink[parent.node], lowlink[u]);
                     }
                 }
             }
         }
-
         sccs
     }
-
-    fn filtered_successors(
-        &self,
-        in_region: &[bool],
-        sigma: &[Option<usize>],
-        node: usize,
-    ) -> Vec<usize> {
-        match sigma[node] {
-            Some(succ) if in_region[succ] => vec![succ],
-            Some(_) => Vec::new(),
-            None => self
-                .get_successors(node)
-                .iter()
-                .copied()
-                .filter(|&succ| in_region[succ])
-                .collect(),
-        }
-    }
-    fn is_bottom_scc(&self, scc: &[usize], in_region: &[bool], sigma: &[Option<usize>]) -> bool {
-        let mut in_scc = vec![false; self.nodes];
-        for &v in scc {
-            in_scc[v] = true;
-        }
-
-        for &v in scc {
-            for succ in self.successors_from_strategy(in_region, sigma, v) {
-                if !in_scc[succ] {
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-
-    fn is_nontrivial_scc(&self, scc: &[usize]) -> bool {
-        if scc.len() > 1 {
-            return true;
-        }
-
-        let node = scc[0];
-        self.successors[node].contains(&node)
-    }
-
-    fn successors_from_strategy<'a>(
-        &'a self,
-        in_region: &'a [bool],
-        sigma: &'a [Option<usize>],
-        node: usize,
-    ) -> Box<dyn Iterator<Item = usize> + 'a> {
-        match sigma[node] {
-            Some(succ) if in_region[succ] => Box::new(std::iter::once(succ)),
-            _ => Box::new(std::iter::empty()),
-        }
-    }
 }
+
 
 pub struct ParityGameBuilder {
     nodes: usize,
@@ -424,3 +358,5 @@ impl ParityGameBuilder {
         game
     }
 }
+
+

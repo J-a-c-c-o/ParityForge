@@ -200,76 +200,70 @@ fn extract_tangles_from_region(
     in_game: &[bool],
 ) -> Vec<Tangle> {
     let nodes = game.num_nodes();
-    let mut keep = vec![false; nodes];
-    for &v in z {
-        keep[v] = true;
-    }
+    let mut z_set = vec![false; nodes];
+    for &v in z { z_set[v] = true; }
 
+    let mut reduced_z = z_set.clone();
     let mut queue = VecDeque::new();
-
+    
     for &v in z {
         let escapes = if game.get_owner(v) == alpha {
-            if let Some(succ) = sigma[v] {
-                in_g_prime[succ] && !keep[succ]
-            } else {
-                true
-            }
+            sigma[v].map_or(true, |succ| in_g_prime[succ] && !z_set[succ])
         } else {
-            game.get_successors(v)
-                .iter()
-                .any(|&succ| in_g_prime[succ] && !keep[succ])
+            game.get_successors(v).iter().any(|&succ| in_g_prime[succ] && !z_set[succ])
         };
 
         if escapes {
-            keep[v] = false;
+            reduced_z[v] = false;
             queue.push_back(v);
         }
     }
 
     while let Some(u) = queue.pop_front() {
-        for &pred in game.get_predecessors(u) {
-            if keep[pred] {
-                let now_escapes = if game.get_owner(pred) == alpha {
-                    sigma[pred] == Some(u)
+        for &v in game.get_predecessors(u) {
+            if reduced_z[v] {
+                let attracted = if game.get_owner(v) == alpha {
+                    sigma[v] == Some(u)
                 } else {
-                    true
+                    game.get_successors(v).iter().all(|&s| !in_g_prime[s] || !z_set[s] || !reduced_z[s] || s == u)
                 };
-
-                if now_escapes {
-                    keep[pred] = false;
-                    queue.push_back(pred);
+                if attracted {
+                    reduced_z[v] = false;
+                    queue.push_back(v);
                 }
             }
         }
     }
 
-    let sccs = game.bottom_sccs(&keep, sigma);
-    let mut tangles = Vec::new();
+    let sccs = game.tarjan_sccs_restricted(&reduced_z, sigma, alpha);
+    let mut found_tangles = Vec::new();
 
     for scc in sccs {
-        let mut t_strat = vec![None; nodes];
-        let mut in_scc = vec![false; nodes];
-        for &v in &scc {
-            in_scc[v] = true;
-            if game.get_owner(v) == alpha {
-                t_strat[v] = sigma[v];
+        let is_nontrivial = scc.len() > 1 || {
+            let u = scc[0];
+            if game.get_owner(u) == alpha {
+                sigma[u] == Some(u)
+            } else {
+                game.get_successors(u).contains(&u)
             }
-        }
+        };
+        if !is_nontrivial { continue; }
 
+        let mut t_strat = vec![None; nodes];
         let mut escapes = Vec::new();
         for &u in &scc {
-            if game.get_owner(u) != alpha {
-                for &succ in game.get_successors(u) {
-                    if in_game[succ] && !in_scc[succ] {
-                        escapes.push(succ);
+            if game.get_owner(u) == alpha {
+                t_strat[u] = sigma[u];
+            } else {
+                for &s in game.get_successors(u) {
+                    if in_game[s] && !scc.contains(&s) {
+                        escapes.push(s);
                     }
                 }
             }
         }
-        escapes.sort_unstable();
-        escapes.dedup();
-
-        tangles.push(Tangle {
+        
+        found_tangles.push(Tangle {
             nodes: scc,
             player: alpha,
             strategy: t_strat,
@@ -277,7 +271,7 @@ fn extract_tangles_from_region(
         });
     }
 
-    tangles
+    found_tangles
 }
 
 fn tangle_attract(
