@@ -184,10 +184,15 @@ fn run_test_command(
                 std::process::exit(1);
             });
 
-            let game = parse_pg(&input_text).unwrap_or_else(|e| {
-                eprintln!("Error parsing parity game '{}': {}", path.display(), e);
-                std::process::exit(1);
-            });
+
+            let game = match parse_pg(&input_text) {
+                Ok(g) => g,
+                Err(e) => {
+                    failures += 1;
+                    eprintln!("Error parsing parity game '{}': {}", path.display(), e);
+                    continue;
+                }
+            };            
 
             for algorithm in &algorithms {
                 let start_time = std::time::Instant::now();
@@ -628,9 +633,7 @@ fn collect_pg_inputs(path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut files = Vec::new();
 
     if metadata.is_file() {
-        if is_pg_file(path) {
-            files.push(path.to_path_buf());
-        }
+        files.push(path.to_path_buf());
         return Ok(files);
     }
 
@@ -664,16 +667,10 @@ fn collect_pg_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()
 
         if metadata.is_dir() {
             collect_pg_files_recursive(&path, files)?;
-        } else if metadata.is_file() && is_pg_file(&path) {
+        } else if metadata.is_file() {
             files.push(path);
         }
     }
 
     Ok(())
-}
-
-fn is_pg_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pg"))
 }
