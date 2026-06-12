@@ -6,7 +6,7 @@ mod verifier;
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
 use crate::solvers::{
-    run_external_solver, run_fpi, run_si, run_spm, run_tl, run_unoptimized_zielonka, run_utl,
+    run_external_solver, run_fpi, run_si, run_spm, run_tl, run_unoptimized_zielonka, run_ptl,
     run_zielonka,
 };
 use crate::verifier::verify_solution;
@@ -130,7 +130,7 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
         "uzlk" => unoptimized_zielonka(input, output),
         "fpi" => fpi(input, output),
         "tl" => tl(input, output),
-        "utl" => utl(input, output),
+        "ptl" => ptl(input, output),
         "spm" => spm(input, output),
         "si" => si(input, output),
         _ => {
@@ -156,7 +156,7 @@ fn run_test_command(
             String::from("uzlk"),
             String::from("fpi"),
             String::from("tl"),
-            String::from("utl"),
+            String::from("ptl"),
             String::from("spm"),
             String::from("si"),
         ]
@@ -578,11 +578,11 @@ fn tl(input: &str, output_file: &str) {
     run_algorithm(input, output_file, run_tl, "Tangle Learning Algorithm");
 }
 
-fn utl(input: &str, output_file: &str) {
+fn ptl(input: &str, output_file: &str) {
     run_algorithm(
         input,
         output_file,
-        run_utl,
+        run_ptl,
         "Unoptimized Tangle Learning Algorithm",
     );
 }
@@ -617,7 +617,7 @@ fn solve_game(
         "uzlk" => run_unoptimized_zielonka(game),
         "fpi" => run_fpi(game),
         "tl" => run_tl(game),
-        "utl" => run_utl(game),
+        "ptl" => run_ptl(game),
         "spm" => run_spm(game),
         "si" => run_si(game),
         _ => {

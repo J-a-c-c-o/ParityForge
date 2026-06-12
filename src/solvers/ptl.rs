@@ -9,7 +9,7 @@ pub struct Tangle {
     pub escapes: Vec<usize>,
 }
 
-pub fn run_tl(
+pub fn run_ptl(
     game: &ParityGame,
 ) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
     let n = game.num_nodes();
