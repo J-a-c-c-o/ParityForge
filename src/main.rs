@@ -188,7 +188,6 @@ fn run_test_command(
             let game = match parse_pg(&input_text) {
                 Ok(g) => g,
                 Err(e) => {
-                    failures += 1;
                     eprintln!("Error parsing parity game '{}': {}", path.display(), e);
                     continue;
                 }

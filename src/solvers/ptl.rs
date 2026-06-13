@@ -1,6 +1,9 @@
 use crate::parity_game::ParityGame;
 use std::collections::VecDeque;
 
+use rayon::prelude::*;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
 #[derive(Clone)]
 pub struct Tangle {
     pub nodes: Vec<usize>,
@@ -162,23 +165,32 @@ fn tangle_attract(
     player: usize,
 ) -> (Vec<bool>, Vec<Option<usize>>) {
     let n = game.num_nodes();
-    let mut in_z = vec![false; n];
-    let mut sigma = vec![None; n];
-    let mut queue = VecDeque::new();
 
-    let mut opp_deg = vec![0; n];
-    for v in 0..n {
-        if in_subgame[v] && game.get_owner(v) != player {
-            opp_deg[v] = game.get_successors(v).iter().filter(|&&s| in_subgame[s]).count();
-        }
-    }
+    let in_z: Vec<AtomicBool> = (0..n).map(|_| AtomicBool::new(false)).collect();
+    
+    let sigma: Vec<AtomicUsize> = (0..n).map(|_| AtomicUsize::new(usize::MAX)).collect();
 
-    let mut tangle_escapes_left = vec![usize::MAX; tangles.len()];
+    let opp_deg: Vec<AtomicUsize> = (0..n)
+        .into_par_iter()
+        .map(|v| {
+            if in_subgame[v] && game.get_owner(v) != player {
+                let deg = game.get_successors(v).iter().filter(|&&s| in_subgame[s]).count();
+                AtomicUsize::new(deg)
+            } else {
+                AtomicUsize::new(0)
+            }
+        })
+        .collect();
+
+    let mut tangle_escapes_left: Vec<AtomicUsize> = (0..tangles.len())
+        .map(|_| AtomicUsize::new(usize::MAX))
+        .collect();
     let mut escape_map = vec![Vec::new(); n];
 
     for (i, t) in tangles.iter().enumerate() {
         if t.player == player {
-            tangle_escapes_left[i] = t.escapes.iter().filter(|&&e| in_subgame[e]).count();
+            let count = t.escapes.iter().filter(|&&e| in_subgame[e]).count();
+            tangle_escapes_left[i] = AtomicUsize::new(count);
             for &e in &t.escapes {
                 if e < n && in_subgame[e] {
                     escape_map[e].push(i);
@@ -187,68 +199,105 @@ fn tangle_attract(
         }
     }
 
+    let mut frontier = Vec::new();
     for &v in targets {
         if in_subgame[v] {
-            in_z[v] = true;
+            in_z[v].store(true, Ordering::SeqCst);
             if game.get_owner(v) == player {
-                sigma[v] = target_sigma[v];
+                let s = target_sigma[v].unwrap_or(usize::MAX);
+                sigma[v].store(s, Ordering::SeqCst);
             }
-            queue.push_back(v);
+            frontier.push(v);
         }
     }
 
-    while let Some(u) = queue.pop_front() {
-        for &v in game.get_predecessors(u) {
-            if !in_subgame[v] { continue; }
+    while !frontier.is_empty() {
+        let next_frontier: Vec<usize> = frontier
+            .par_iter()
+            .flat_map(|&u| {
+                let mut local_next = Vec::new();
 
-            if in_z[v] {
-                if game.get_owner(v) == player && sigma[v].is_none() {
-                    sigma[v] = Some(u);
-                }
-                continue;
-            }
+                for &v in game.get_predecessors(u) {
+                    if !in_subgame[v] { continue; }
 
-            let owner = game.get_owner(v);
-            let can_attract = if owner == player {
-                true
-            } else {
-                opp_deg[v] -= 1;
-                opp_deg[v] == 0
-            };
+                    if in_z[v].load(Ordering::Acquire) {
+                        if game.get_owner(v) == player {
+                            let _ = sigma[v].compare_exchange(
+                                usize::MAX, 
+                                u, 
+                                Ordering::SeqCst, 
+                                Ordering::Relaxed
+                            );
+                        }
+                        continue;
+                    }
 
-            if can_attract {
-                in_z[v] = true;
-                if owner == player {
-                    sigma[v] = Some(u);
-                }
-                queue.push_back(v);
-            }
-        }
+                    let owner = game.get_owner(v);
+                    let can_attract = if owner == player {
+                        true
+                    } else {
+                        opp_deg[v].fetch_sub(1, Ordering::SeqCst) == 1
+                    };
 
-        for &tidx in &escape_map[u] {
-            if tangle_escapes_left[tidx] == usize::MAX || tangle_escapes_left[tidx] == 0 {
-                continue;
-            }
-            tangle_escapes_left[tidx] -= 1;
-            
-            if tangle_escapes_left[tidx] == 0 {
-                let t = &tangles[tidx];
-                if t.nodes.iter().all(|&node| in_subgame[node]) {
-                    for &node in &t.nodes {
-                        if !in_z[node] {
-                            in_z[node] = true;
-                            if game.get_owner(node) == player {
-                                sigma[node] = t.strategy[node];
+                    if can_attract {
+                        if !in_z[v].swap(true, Ordering::SeqCst) {
+                            if owner == player {
+                                sigma[v].store(u, Ordering::SeqCst);
                             }
-                            queue.push_back(node);
+                            local_next.push(v);
                         }
                     }
                 }
-            }
-        }
+
+                for &tidx in &escape_map[u] {
+                    let mut current = tangle_escapes_left[tidx].load(Ordering::Acquire);
+                    loop {
+                        if current == usize::MAX || current == 0 {
+                            break;
+                        }
+                        
+                        match tangle_escapes_left[tidx].compare_exchange_weak(
+                            current,
+                            current - 1,
+                            Ordering::SeqCst,
+                            Ordering::Relaxed,
+                        ) {
+                            Ok(_) => {
+                                if current == 1 {
+                                    let t = &tangles[tidx];
+                                    if t.nodes.iter().all(|&node| in_subgame[node]) {
+                                        for &node in &t.nodes {
+                                            if !in_z[node].swap(true, Ordering::SeqCst) {
+                                                if game.get_owner(node) == player {
+                                                    let s = t.strategy[node].unwrap_or(usize::MAX);
+                                                    sigma[node].store(s, Ordering::SeqCst);
+                                                }
+                                                local_next.push(node);
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                            Err(actual) => current = actual,
+                        }
+                    }
+                }
+
+                local_next
+            })
+            .collect();
+
+        frontier = next_frontier;
     }
 
-    (in_z, sigma)
+    let final_in_z = in_z.into_iter().map(|b| b.into_inner()).collect();
+    let final_sigma = sigma.into_iter().map(|s| {
+        let val = s.into_inner();
+        if val == usize::MAX { None } else { Some(val) }
+    }).collect();
+
+    (final_in_z, final_sigma)
 }
 
 fn extract_tangles_from_region(
