@@ -6,7 +6,7 @@ mod verifier;
 use crate::parity_game::{ParityGame, ParityGameBuilder};
 use crate::pg_parser::{parse_pg, sol_to_strat, strat_to_sol, unparse_pg};
 use crate::solvers::{
-    run_external_solver, run_fpi, run_si, run_spm, run_tl, run_unoptimized_zielonka, run_ptl,
+    run_external_solver, run_fpi, run_fpj, run_si, run_spm, run_tl, run_unoptimized_zielonka, run_ptl,
     run_zielonka,
 };
 use crate::verifier::verify_solution;
@@ -129,6 +129,7 @@ fn run_solve_command(input: &str, output: &str, algorithm: &str) {
         "default" | "zlk" => zielonka(input, output),
         "uzlk" => unoptimized_zielonka(input, output),
         "fpi" => fpi(input, output),
+        "fpj" => fpj(input, output),
         "tl" => tl(input, output),
         "ptl" => ptl(input, output),
         "spm" => spm(input, output),
@@ -155,6 +156,7 @@ fn run_test_command(
             String::from("zlk"),
             String::from("uzlk"),
             String::from("fpi"),
+            String::from("fpj"),
             String::from("tl"),
             String::from("ptl"),
             String::from("spm"),
@@ -573,6 +575,15 @@ fn fpi(input: &str, output_file: &str) {
     );
 }
 
+fn fpj(input: &str, output_file: &str) {
+    run_algorithm(
+        input,
+        output_file,
+        run_fpj,
+        "Fixed-Point Iteration with Justifications Algorithm",
+    );
+}
+
 fn tl(input: &str, output_file: &str) {
     run_algorithm(input, output_file, run_tl, "Tangle Learning Algorithm");
 }
@@ -615,6 +626,7 @@ fn solve_game(
         "default" | "zlk" => run_zielonka(game),
         "uzlk" => run_unoptimized_zielonka(game),
         "fpi" => run_fpi(game),
+        "fpj" => run_fpj(game),
         "tl" => run_tl(game),
         "ptl" => run_ptl(game),
         "spm" => run_spm(game),
