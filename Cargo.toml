@@ -1,12 +1,12 @@
-[package]
-name = "ParityForge"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+    "cli",
+    "solver",
+    "test_solvers"
+]
 
-[dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
-rand = "0.10.1"
-rayon = "1.12.0"
+default-members = ["cli"]
+resolver = "3"
 
 [profile.release]
 codegen-units = 1

@@ -1,4 +1,3 @@
-pub mod external;
 pub mod fpi;
 pub mod fpj;
 pub mod si;
@@ -8,7 +7,6 @@ pub mod ptl;
 pub mod uzlk;
 pub mod zlk;
 
-pub use external::run_external_solver;
 pub use fpi::run_fpi;
 pub use fpj::run_fpj;
 pub use si::run_si;
