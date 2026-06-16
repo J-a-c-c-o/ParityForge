@@ -17,7 +17,7 @@ struct TarjanFrame {
 }
 
 impl ParityGame {
-    pub fn new(nodes: usize) -> Self {
+    fn new(nodes: usize) -> Self {
         ParityGame {
             nodes,
             successors: vec![Vec::new(); nodes],

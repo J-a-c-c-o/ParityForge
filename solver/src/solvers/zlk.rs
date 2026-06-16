@@ -133,7 +133,7 @@ fn merge_strategy(target: &mut [Option<usize>], source: &[Option<usize>]) {
     }
 }
 
-pub fn attract(
+fn attract(
     game: &ParityGame,
     excluded: &[bool],
     nodes_to_attract: &[usize],

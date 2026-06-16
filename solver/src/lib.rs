@@ -3,7 +3,7 @@ pub mod pg_parser;
 pub mod solvers;
 pub mod verifier;
 
-use parity_game::{ParityGame, ParityGameBuilder};
+pub use parity_game::{ParityGame, ParityGameBuilder};
 use std::path::Path;
 use std::fs;
 

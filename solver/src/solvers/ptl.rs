@@ -5,11 +5,11 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[derive(Clone)]
-pub struct Tangle {
-    pub nodes: Vec<usize>,
-    pub player: usize,
-    pub strategy: Vec<Option<usize>>,
-    pub escapes: Vec<usize>,
+struct Tangle {
+    nodes: Vec<usize>,
+    player: usize,
+    strategy: Vec<Option<usize>>,
+    escapes: Vec<usize>,
 }
 
 pub fn run_ptl(
