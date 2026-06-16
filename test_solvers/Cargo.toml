@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
+peak_alloc = "0.3.0"
 solver = { path = "../solver" }

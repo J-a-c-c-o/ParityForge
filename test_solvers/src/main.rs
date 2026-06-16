@@ -1,10 +1,15 @@
 use clap::{Parser, Subcommand};
+use peak_alloc::PeakAlloc;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-// This imports the pure API from your library crate
 use solver::{generate_random_pg, load_pg, solve, verify, Algorithm};
+
+#[global_allocator]
+static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 /// ParityForge Tester
 #[derive(Parser)]
@@ -29,6 +34,10 @@ enum Commands {
         #[arg(long, short = 'a')]
         algorithm: Vec<String>,
 
+        /// Optional path to output results to a CSV file
+        #[arg(long)]
+        csv: Option<PathBuf>,
+
         /// Number of random games to test
         #[arg(short, long, default_value_t = 100)]
         count: usize,
@@ -42,8 +51,8 @@ enum Commands {
         maxe: usize,
 
         /// Maximum priority for random games
-        #[arg(short, long, default_value_t = 50)]
-        maxp: usize,
+        #[arg(short, long)]
+        maxp: Option<usize>,
 
         /// Optional seed for reproducibility
         #[arg(long)]
@@ -54,9 +63,23 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Test { input, algorithm, count, size, maxe, maxp, seed } => {
+        Commands::Test { input, algorithm, csv, count, size, maxe, maxp, seed } => {
             let mut failures = 0;
             let mut combined_times: HashMap<&str, Duration> = HashMap::new();
+
+            let maxp = maxp.unwrap_or(size);
+
+            let mut csv_writer = if let Some(csv_path) = csv {
+                let mut f = File::create(&csv_path).unwrap_or_else(|e| {
+                    eprintln!("Failed to create CSV file '{}': {}", csv_path.display(), e);
+                    std::process::exit(1);
+                });
+                writeln!(f, "Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB").unwrap();
+                println!("Writing results to CSV: {}", csv_path.display());
+                Some(f)
+            } else {
+                None
+            };
 
             let algorithms = if algorithm.is_empty() {
                 vec![
@@ -99,55 +122,82 @@ fn main() {
                         }
                     };
 
+                    let game_name = file_path.file_name().unwrap().to_string_lossy();
+                    let node_count = game.num_nodes();
+                    let edge_count = game.num_edges();
+
                     for (name, algo) in &algorithms {
                         let start = Instant::now();
-                        match solve(&game, algo.clone()) {
+                        PEAK_ALLOC.reset_peak_usage();
+                        let (status, time_ms, peak_memory) = match solve(&game, algo.clone()) {
                             Ok(sol) => {
                                 let duration = start.elapsed();
+                                let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
                                 *combined_times.entry(name).or_insert(Duration::ZERO) += duration;
 
                                 if let Err(e) = verify(&game, &sol) {
                                     eprintln!("[FAIL] {} via {}: {}", file_path.display(), name, e);
                                     failures += 1;
+                                    ("FAIL", duration.as_secs_f64() * 1000.0, peak_mem)
                                 } else {
-                                    println!("[OK] {} via {} in {:?}", file_path.display(), name, duration);
+                                    println!("[OK] {} via {} in {:?} (Peak Memory: {} MB)", file_path.display(), name, duration, peak_mem );
+                                    ("OK", duration.as_secs_f64() * 1000.0, peak_mem)
                                 }
                             }
                             Err(e) => {
                                 eprintln!("[ERROR] {} via {}: {}", file_path.display(), name, e);
                                 failures += 1;
+                                ("ERROR", 0.0, PEAK_ALLOC.peak_usage_as_mb())
                             }
+                        };
+
+                        // Write to CSV
+                        if let Some(f) = &mut csv_writer {
+                            writeln!(f, "{},{},{},{},{},{},{}", game_name, node_count, edge_count, name, status, time_ms, peak_memory).unwrap();
                         }
                     }
                 }
             } else {
                 println!(
-                    "Generating {} random games (size: {}, max_edges: {}, max_prio: {})...",
+                    "{} random games (size: {}, max_edges: {}, max_prio: {})...",
                     count, size, maxe, maxp
                 );
 
                 for i in 0..count {
                     let current_seed = seed.map(|s| s + i as u64);
-                    let game = generate_random_pg(size, maxe,   maxp, current_seed);
+                    let game = generate_random_pg(size, maxe, maxp, current_seed);
+                    let game_name = format!("Random_{}", i + 1);
+                    let node_count = game.num_nodes();
+                    let edge_count = game.num_edges();
 
                     for (name, algo) in &algorithms {
                         let start = Instant::now();
-                        match solve(&game, algo.clone()) {
+                        PEAK_ALLOC.reset_peak_usage();
+                        let (status, time_ms, peak_memory) = match solve(&game, algo.clone()) {
                             Ok(sol) => {
                                 let duration = start.elapsed();
+                                let peak_mem = PEAK_ALLOC.peak_usage_as_mb();
                                 *combined_times.entry(name).or_insert(Duration::ZERO) += duration;
 
                                 if let Err(e) = verify(&game, &sol) {
                                     eprintln!("[FAIL] Random Game #{} via {}: {}", i + 1, name, e);
                                     failures += 1;
+                                    ("FAIL", duration.as_secs_f64() * 1000.0, peak_mem)
                                 } else {
-                                    println!("[OK] Random Game #{} via {} in {:?}", i + 1, name, duration);
+                                    println!("[OK] Random Game #{} via {} in {:?} (Peak Memory: {} MB)", i + 1, name, duration, peak_mem);
+                                    ("OK", duration.as_secs_f64() * 1000.0, peak_mem)
                                 }
                             }
                             Err(e) => {
                                 eprintln!("[ERROR] Random Game #{} via {}: {}", i + 1, name, e);
                                 failures += 1;
+                                ("ERROR", 0.0, PEAK_ALLOC.peak_usage_as_mb())
                             }
+                        };
+
+                        // Write to CSV
+                        if let Some(f) = &mut csv_writer {
+                            writeln!(f, "{},{},{},{},{},{},{}", game_name, node_count, edge_count, name, status, time_ms, peak_memory).unwrap();
                         }
                     }
                 }
