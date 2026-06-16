@@ -36,6 +36,9 @@ enum Commands {
         /// Input solution file (.paritysol)
         solution: String,
     },
+
+    /// List available algorithms
+    ListAlgorithms,
 }
 
 fn main() {
@@ -83,6 +86,11 @@ fn main() {
             });
 
             println!("Solution verified successfully.");
+        }
+        Commands::ListAlgorithms => {
+            solver::Algorithm::list_algorithms().iter().for_each(|algo| {
+                println!("{}", algo);
+            });
         }
     }
 }

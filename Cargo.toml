@@ -2,7 +2,7 @@
 members = [
     "cli",
     "solver",
-    "test_solvers"
+    "test-solvers"
 ]
 
 default-members = ["cli"]

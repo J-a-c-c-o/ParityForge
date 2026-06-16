@@ -83,8 +83,8 @@ fn main() {
 
             let algorithms = if algorithm.is_empty() {
                 vec![
-                    ("Zielonka", Algorithm::Zielonka),
-                    ("Unoptimized Zielonka", Algorithm::UnoptimizedZielonka),
+                    ("Zielonka", Algorithm::Zlk),
+                    ("PZLK", Algorithm::Pzlk),
                     ("FPI", Algorithm::Fpi),
                     ("FPJ", Algorithm::Fpj),
                     ("TL", Algorithm::Tl),

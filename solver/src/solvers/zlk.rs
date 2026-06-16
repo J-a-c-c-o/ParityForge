@@ -1,8 +1,7 @@
 use crate::parity_game::ParityGame;
-use rayon::prelude::*;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::collections::{HashSet, VecDeque};
 
-pub fn run_zielonka(
+pub fn run_unoptimized_zielonka(
     game: &ParityGame,
 ) -> Result<
     (
@@ -138,107 +137,53 @@ fn attract(
     excluded: &[bool],
     nodes_to_attract: &[usize],
     player: usize,
-    strategy: Vec<Option<usize>>,
+    mut strategy: Vec<Option<usize>>,
 ) -> (Vec<usize>, Vec<Option<usize>>) {
-    let nodes = game.num_nodes();
+    let mut attractor = HashSet::new();
+    let mut queue = VecDeque::new();
 
-    let out_degree: Vec<AtomicUsize> = (0..nodes)
-        .into_par_iter()
-        .map(|node| {
-            if !excluded[node] && game.get_owner(node) == 1 - player {
-                let valid_edges_count = game
-                    .get_edges(node)
-                    .iter()
-                    .filter(|&&target| !excluded[target])
-                    .count();
-                AtomicUsize::new(valid_edges_count)
-            } else {
-                AtomicUsize::new(0)
-            }
-        })
-        .collect();
+    let mut out_degree = vec![0; game.num_nodes()];
 
-    let in_attractor: Vec<AtomicBool> = (0..nodes).map(|_| AtomicBool::new(false)).collect();
-
-    let atomic_strategy: Vec<AtomicUsize> = strategy
-        .into_iter()
-        .map(|opt| AtomicUsize::new(opt.unwrap_or(usize::MAX)))
-        .collect();
-
-    let mut frontier: Vec<usize> = Vec::new();
-    for &node in nodes_to_attract {
-        if !excluded[node] && !in_attractor[node].swap(true, Ordering::Relaxed) {
-            frontier.push(node);
+    for node in game.get_nodes() {
+        if !excluded[node] && game.get_owner(node) == 1 - player {
+            let valid_edges_count = game
+                .get_edges(node)
+                .iter()
+                .filter(|target| !excluded[**target])
+                .count();
+            out_degree[node] = valid_edges_count;
         }
     }
 
-    while !frontier.is_empty() {
-        let next_frontier: Vec<usize> = frontier
-            .into_par_iter()
-            .flat_map(|current| {
-                let mut local_next = Vec::new();
-
-                for &predecessor in game.get_predecessors(current) {
-                    if excluded[predecessor] || in_attractor[predecessor].load(Ordering::Relaxed) {
-                        continue;
-                    }
-
-                    if game.get_owner(predecessor) == player {
-                        let _ = atomic_strategy[predecessor].compare_exchange(
-                            usize::MAX,
-                            current,
-                            Ordering::Relaxed,
-                            Ordering::Relaxed,
-                        );
-
-                        if !in_attractor[predecessor].swap(true, Ordering::SeqCst) {
-                            local_next.push(predecessor);
-                        }
-                    } else {
-                        let mut current_deg = out_degree[predecessor].load(Ordering::Relaxed);
-                        loop {
-                            if current_deg == 0 {
-                                break;
-                            }
-                            match out_degree[predecessor].compare_exchange_weak(
-                                current_deg,
-                                current_deg - 1,
-                                Ordering::SeqCst,
-                                Ordering::Relaxed,
-                            ) {
-                                Ok(_) => {
-                                    if current_deg == 1
-                                        && !in_attractor[predecessor].swap(true, Ordering::SeqCst)
-                                    {
-                                        local_next.push(predecessor);
-                                    }
-                                    break;
-                                }
-                                Err(actual) => current_deg = actual,
-                            }
-                        }
-                    }
-                }
-                local_next
-            })
-            .collect();
-
-        frontier = next_frontier;
+    for &node in nodes_to_attract {
+        if !excluded[node] && attractor.insert(node) {
+            queue.push_back(node);
+        }
     }
 
-    let final_attractor: Vec<usize> = in_attractor
-        .into_iter()
-        .enumerate()
-        .filter_map(|(idx, atom)| if atom.into_inner() { Some(idx) } else { None })
-        .collect();
+    while let Some(current) = queue.pop_front() {
+        for &predecessor in game.get_predecessors(current) {
+            if excluded[predecessor] || attractor.contains(&predecessor) {
+                continue;
+            }
 
-    let final_strategy: Vec<Option<usize>> = atomic_strategy
-        .into_iter()
-        .map(|atom| {
-            let val = atom.into_inner();
-            if val == usize::MAX { None } else { Some(val) }
-        })
-        .collect();
+            if game.get_owner(predecessor) == player {
+                if strategy[predecessor].is_none() {
+                    strategy[predecessor] = Some(current);
+                }
+                attractor.insert(predecessor);
+                queue.push_back(predecessor);
+            } else {
+                if out_degree[predecessor] > 0 {
+                    out_degree[predecessor] -= 1;
+                    if out_degree[predecessor] == 0 {
+                        attractor.insert(predecessor);
+                        queue.push_back(predecessor);
+                    }
+                }
+            }
+        }
+    }
 
-    (final_attractor, final_strategy)
+    (attractor.into_iter().collect(), strategy)
 }

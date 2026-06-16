@@ -18,8 +18,8 @@ pub struct Solution {
 /// Enum for type-safe algorithm selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Algorithm {
-    Zielonka,
-    UnoptimizedZielonka,
+    Pzlk,
+    Zlk,
     Fpi,
     Fpj,
     Tl,
@@ -28,12 +28,27 @@ pub enum Algorithm {
     Spm,
 }
 
+impl Algorithm {
+    pub fn list_algorithms() -> Vec<&'static str> {
+        vec![
+            "zlk",
+            "pzlk",
+            "fpi",
+            "fpj",
+            "tl",
+            "ptl",
+            "si",
+            "spm"
+        ]
+    }
+}
+
 impl std::str::FromStr for Algorithm {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "zlk" => Ok(Algorithm::Zielonka),
-            "uzlk" => Ok(Algorithm::UnoptimizedZielonka),
+            "pzlk" => Ok(Algorithm::Pzlk),
+            "zlk" => Ok(Algorithm::Zlk),
             "fpi" => Ok(Algorithm::Fpi),
             "fpj" => Ok(Algorithm::Fpj),
             "tl" => Ok(Algorithm::Tl),
@@ -65,8 +80,8 @@ pub fn load_solution(path: &Path) -> Result<Solution, String> {
 
 pub fn solve(game: &ParityGame, algo: Algorithm) -> Result<Solution, String> {
     let (w0, w1, strat0, strat1) = match algo {
-        Algorithm::Zielonka => solvers::run_zielonka(game)?,
-        Algorithm::UnoptimizedZielonka => solvers::run_unoptimized_zielonka(game)?,
+        Algorithm::Pzlk => solvers::run_zielonka(game)?,
+        Algorithm::Zlk => solvers::run_unoptimized_zielonka(game)?,
         Algorithm::Fpi => solvers::run_fpi(game)?,
         Algorithm::Fpj => solvers::run_fpj(game)?,
         Algorithm::Tl => solvers::run_tl(game)?,
