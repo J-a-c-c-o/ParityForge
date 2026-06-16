@@ -40,16 +40,15 @@ fn solve(
             }
 
             let (alpha_prime, strat_v) = onestep(game, v, &distractions);
-            
+
             if alpha_prime != alpha {
                 distractions[v] = true;
-                changed = true;      
+                changed = true;
                 to_unjustify.push(v);
             }
 
             strat[v] = strat_v;
             justifications[v] = true;
-
         }
 
         if changed {
@@ -114,20 +113,20 @@ fn unjustify(
         if !justifications[pred] {
             continue;
         }
-        
+
         let pred_owner = game.get_owner(pred);
         let pred_winner = winner(game, pred, distractions);
-        
+
         let depends_on_v = if pred_owner == pred_winner {
             strat[pred] == Some(v)
         } else {
-            true 
+            true
         };
 
         if depends_on_v {
             justifications[pred] = false;
-            distractions[pred] = false; 
-            
+            distractions[pred] = false;
+
             unjustify(game, pred, justifications, distractions, strat);
         }
     }

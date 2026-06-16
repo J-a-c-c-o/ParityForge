@@ -1,10 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use solver::{generate_random_pg, solve, Algorithm};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use solver::{Algorithm, generate_random_pg, solve};
 use std::env;
 
 fn bench_solvers(c: &mut Criterion) {
     let mut group = c.benchmark_group("Parity Game Solvers");
-    
+
     let sizes: Vec<usize> = env::var("BENCH_SIZES")
         .map(|s| s.split(',').filter_map(|n| n.parse().ok()).collect())
         .unwrap_or_else(|_| vec![50, 100]);
@@ -18,11 +18,15 @@ fn bench_solvers(c: &mut Criterion) {
             })
         });
 
-        group.bench_with_input(BenchmarkId::new("Unoptimized Zielonka", size), &game, |b, g| {
-            b.iter(|| {
-                let _ = solve(black_box(g), Algorithm::UnoptimizedZielonka).unwrap();
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new("Unoptimized Zielonka", size),
+            &game,
+            |b, g| {
+                b.iter(|| {
+                    let _ = solve(black_box(g), Algorithm::UnoptimizedZielonka).unwrap();
+                })
+            },
+        );
 
         group.bench_with_input(BenchmarkId::new("FPI", size), &game, |b, g| {
             b.iter(|| {

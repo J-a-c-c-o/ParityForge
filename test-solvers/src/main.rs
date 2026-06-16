@@ -57,13 +57,22 @@ enum Commands {
         /// Optional seed for reproducibility
         #[arg(long)]
         seed: Option<u64>,
-    }
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Test { input, algorithm, csv, count, size, maxe, maxp, seed } => {
+        Commands::Test {
+            input,
+            algorithm,
+            csv,
+            count,
+            size,
+            maxe,
+            maxp,
+            seed,
+        } => {
             let mut failures = 0;
             let mut combined_times: HashMap<&str, Duration> = HashMap::new();
 
@@ -74,7 +83,11 @@ fn main() {
                     eprintln!("Failed to create CSV file '{}': {}", csv_path.display(), e);
                     std::process::exit(1);
                 });
-                writeln!(f, "Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB").unwrap();
+                writeln!(
+                    f,
+                    "Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB"
+                )
+                .unwrap();
                 println!("Writing results to CSV: {}", csv_path.display());
                 Some(f)
             } else {
@@ -93,13 +106,16 @@ fn main() {
                     ("SPM", Algorithm::Spm),
                 ]
             } else {
-                algorithm.iter().map(|name| {
-                    let algo = name.parse::<Algorithm>().unwrap_or_else(|e| {
-                        eprintln!("Error parsing algorithm '{}': {}", name, e);
-                        std::process::exit(1);
-                    });
-                    (name.as_str(), algo)
-                }).collect()
+                algorithm
+                    .iter()
+                    .map(|name| {
+                        let algo = name.parse::<Algorithm>().unwrap_or_else(|e| {
+                            eprintln!("Error parsing algorithm '{}': {}", name, e);
+                            std::process::exit(1);
+                        });
+                        (name.as_str(), algo)
+                    })
+                    .collect()
             };
 
             if let Some(path) = input {
@@ -140,7 +156,13 @@ fn main() {
                                     failures += 1;
                                     ("FAIL", duration.as_secs_f64() * 1000.0, peak_mem)
                                 } else {
-                                    println!("[OK] {} via {} in {:?} (Peak Memory: {} MB)", file_path.display(), name, duration, peak_mem );
+                                    println!(
+                                        "[OK] {} via {} in {:?} (Peak Memory: {} MB)",
+                                        file_path.display(),
+                                        name,
+                                        duration,
+                                        peak_mem
+                                    );
                                     ("OK", duration.as_secs_f64() * 1000.0, peak_mem)
                                 }
                             }
@@ -153,7 +175,18 @@ fn main() {
 
                         // Write to CSV
                         if let Some(f) = &mut csv_writer {
-                            writeln!(f, "{},{},{},{},{},{},{}", game_name, node_count, edge_count, name, status, time_ms, peak_memory).unwrap();
+                            writeln!(
+                                f,
+                                "{},{},{},{},{},{},{}",
+                                game_name,
+                                node_count,
+                                edge_count,
+                                name,
+                                status,
+                                time_ms,
+                                peak_memory
+                            )
+                            .unwrap();
                         }
                     }
                 }
@@ -184,7 +217,13 @@ fn main() {
                                     failures += 1;
                                     ("FAIL", duration.as_secs_f64() * 1000.0, peak_mem)
                                 } else {
-                                    println!("[OK] Random Game #{} via {} in {:?} (Peak Memory: {} MB)", i + 1, name, duration, peak_mem);
+                                    println!(
+                                        "[OK] Random Game #{} via {} in {:?} (Peak Memory: {} MB)",
+                                        i + 1,
+                                        name,
+                                        duration,
+                                        peak_mem
+                                    );
                                     ("OK", duration.as_secs_f64() * 1000.0, peak_mem)
                                 }
                             }
@@ -197,7 +236,18 @@ fn main() {
 
                         // Write to CSV
                         if let Some(f) = &mut csv_writer {
-                            writeln!(f, "{},{},{},{},{},{},{}", game_name, node_count, edge_count, name, status, time_ms, peak_memory).unwrap();
+                            writeln!(
+                                f,
+                                "{},{},{},{},{},{},{}",
+                                game_name,
+                                node_count,
+                                edge_count,
+                                name,
+                                status,
+                                time_ms,
+                                peak_memory
+                            )
+                            .unwrap();
                         }
                     }
                 }
@@ -247,7 +297,9 @@ fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), S
     for entry in std::fs::read_dir(dir).map_err(|e| format!("Error reading dir: {}", e))? {
         let entry = entry.map_err(|e| format!("Error reading entry: {}", e))?;
         let path = entry.path();
-        let metadata = entry.metadata().map_err(|e| format!("Metadata error: {}", e))?;
+        let metadata = entry
+            .metadata()
+            .map_err(|e| format!("Metadata error: {}", e))?;
 
         if metadata.is_dir() {
             collect_files_recursive(&path, files)?;

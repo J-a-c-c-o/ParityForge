@@ -11,7 +11,15 @@ struct Tangle {
 
 pub fn run_tl(
     game: &ParityGame,
-) -> Result<(Vec<usize>, Vec<usize>, Vec<Option<usize>>, Vec<Option<usize>>), String> {
+) -> Result<
+    (
+        Vec<usize>,
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<Option<usize>>,
+    ),
+    String,
+> {
     let n = game.num_nodes();
     let mut in_game = vec![true; n];
     let mut remaining = n;
@@ -67,7 +75,7 @@ pub fn run_tl(
             let (z_set, sigma) = tangle_attract(
                 game,
                 &tangles,
-                &in_game,      // Global game
+                &in_game, // Global game
                 &dom_targets,
                 &dom_sigma,
                 player,
@@ -133,8 +141,10 @@ fn search(game: &ParityGame, tangles: &[Tangle], in_game: &[bool]) -> Vec<Tangle
             }
         }
 
-        let (z_set, sigma) = tangle_attract(game, tangles, &in_g_prime, &targets, &target_sigma, alpha);
-        let extracted = extract_tangles_from_region(game, &z_set, &sigma, alpha, &in_g_prime, in_game);
+        let (z_set, sigma) =
+            tangle_attract(game, tangles, &in_g_prime, &targets, &target_sigma, alpha);
+        let extracted =
+            extract_tangles_from_region(game, &z_set, &sigma, alpha, &in_g_prime, in_game);
 
         let found_dominion = extracted.iter().any(|t| t.escapes.is_empty());
         new_tangles.extend(extracted);
@@ -169,7 +179,11 @@ fn tangle_attract(
     let mut opp_deg = vec![0; n];
     for v in 0..n {
         if in_subgame[v] && game.get_owner(v) != player {
-            opp_deg[v] = game.get_successors(v).iter().filter(|&&s| in_subgame[s]).count();
+            opp_deg[v] = game
+                .get_successors(v)
+                .iter()
+                .filter(|&&s| in_subgame[s])
+                .count();
         }
     }
 
@@ -199,7 +213,9 @@ fn tangle_attract(
 
     while let Some(u) = queue.pop_front() {
         for &v in game.get_predecessors(u) {
-            if !in_subgame[v] { continue; }
+            if !in_subgame[v] {
+                continue;
+            }
 
             if in_z[v] {
                 if game.get_owner(v) == player && sigma[v].is_none() {
@@ -230,7 +246,7 @@ fn tangle_attract(
                 continue;
             }
             tangle_escapes_left[tidx] -= 1;
-            
+
             if tangle_escapes_left[tidx] == 0 {
                 let t = &tangles[tidx];
                 if t.nodes.iter().all(|&node| in_subgame[node]) {
@@ -264,12 +280,16 @@ fn extract_tangles_from_region(
     let mut queue = VecDeque::new();
 
     for u in 0..n {
-        if !closed_z[u] { continue; }
-        
+        if !closed_z[u] {
+            continue;
+        }
+
         let leaks = if game.get_owner(u) == alpha {
             sigma[u].is_none() // Alpha failed to loop back
         } else {
-            game.get_successors(u).iter().any(|&s| in_g_prime[s] && !closed_z[s])
+            game.get_successors(u)
+                .iter()
+                .any(|&s| in_g_prime[s] && !closed_z[s])
         };
 
         if leaks {
@@ -306,10 +326,14 @@ fn extract_tangles_from_region(
                 game.get_successors(u).contains(&u)
             }
         };
-        if !is_nontrivial { continue; }
+        if !is_nontrivial {
+            continue;
+        }
 
         let mut in_scc = vec![false; n];
-        for &u in &scc { in_scc[u] = true; }
+        for &u in &scc {
+            in_scc[u] = true;
+        }
 
         let mut escapes = Vec::new();
         let mut strat = vec![None; n];

@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use solver::{load_pg, save_solution, solve, Algorithm};
+use solver::{Algorithm, load_pg, save_solution, solve};
 use std::path::Path;
 
 /// ParityForge CLI
@@ -45,7 +45,11 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Solve { input, output, algorithm } => {
+        Commands::Solve {
+            input,
+            output,
+            algorithm,
+        } => {
             let algo = algorithm.parse::<Algorithm>().unwrap_or_else(|e| {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
@@ -88,9 +92,11 @@ fn main() {
             println!("Solution verified successfully.");
         }
         Commands::ListAlgorithms => {
-            solver::Algorithm::list_algorithms().iter().for_each(|algo| {
-                println!("{}", algo);
-            });
+            solver::Algorithm::list_algorithms()
+                .iter()
+                .for_each(|algo| {
+                    println!("{}", algo);
+                });
         }
     }
 }

@@ -4,8 +4,8 @@ pub mod solvers;
 pub mod verifier;
 
 pub use parity_game::{ParityGame, ParityGameBuilder};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 // Struct to hold the solution data
 pub struct Solution {
@@ -30,16 +30,7 @@ pub enum Algorithm {
 
 impl Algorithm {
     pub fn list_algorithms() -> Vec<&'static str> {
-        vec![
-            "zlk",
-            "pzlk",
-            "fpi",
-            "fpj",
-            "tl",
-            "ptl",
-            "si",
-            "spm"
-        ]
+        vec!["zlk", "pzlk", "fpi", "fpj", "tl", "ptl", "si", "spm"]
     }
 }
 
@@ -66,16 +57,19 @@ pub fn load_pg(path: &Path) -> Result<ParityGame, String> {
 }
 
 pub fn save_solution(path: &Path, game: &ParityGame, sol: &Solution) -> Result<(), String> {
-    let output = pg_parser::strat_to_sol(
-        game, &sol.strat0, &sol.strat1, &sol.w0, &sol.w1
-    );
+    let output = pg_parser::strat_to_sol(game, &sol.strat0, &sol.strat1, &sol.w0, &sol.w1);
     fs::write(path, output).map_err(|e| e.to_string())
 }
 
 pub fn load_solution(path: &Path) -> Result<Solution, String> {
     let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
     let (w0, w1, strat0, strat1) = pg_parser::sol_to_strat(&text).map_err(|e| e.to_string())?;
-    Ok(Solution { w0, w1, strat0, strat1 })
+    Ok(Solution {
+        w0,
+        w1,
+        strat0,
+        strat1,
+    })
 }
 
 pub fn solve(game: &ParityGame, algo: Algorithm) -> Result<Solution, String> {
@@ -89,14 +83,24 @@ pub fn solve(game: &ParityGame, algo: Algorithm) -> Result<Solution, String> {
         Algorithm::Si => solvers::run_si(game)?,
         Algorithm::Spm => solvers::run_spm(game)?,
     };
-    Ok(Solution { w0, w1, strat0, strat1 })
+    Ok(Solution {
+        w0,
+        w1,
+        strat0,
+        strat1,
+    })
 }
 
 pub fn verify(game: &ParityGame, sol: &Solution) -> Result<(), String> {
     verifier::verify_solution(game, &sol.w0, &sol.w1, &sol.strat0, &sol.strat1)
 }
 
-pub fn generate_random_pg(nodes: usize, max_edges: usize, max_prio: usize, seed: Option<u64>) -> ParityGame {
+pub fn generate_random_pg(
+    nodes: usize,
+    max_edges: usize,
+    max_prio: usize,
+    seed: Option<u64>,
+) -> ParityGame {
     ParityGameBuilder::new()
         .random_game(nodes, max_edges, max_prio, seed)
         .build()

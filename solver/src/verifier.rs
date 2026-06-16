@@ -8,17 +8,23 @@ pub fn verify_solution(
     strat1: &[Option<usize>],
 ) -> Result<(), String> {
     let node_count = game.num_nodes();
-    
+
     let mut in_w0 = vec![false; node_count];
     let mut in_w1 = vec![false; node_count];
 
-    for &v in w0 { in_w0[v] = true; }
+    for &v in w0 {
+        in_w0[v] = true;
+    }
     for &v in w1 {
-        if in_w0[v] { return Err(format!("Node {} is in both W0 and W1", v)); }
-        in_w1[v] = true; 
+        if in_w0[v] {
+            return Err(format!("Node {} is in both W0 and W1", v));
+        }
+        in_w1[v] = true;
     }
     for v in 0..node_count {
-        if !in_w0[v] && !in_w1[v] { return Err(format!("Node {} is in neither W0 nor W1", v)); }
+        if !in_w0[v] && !in_w1[v] {
+            return Err(format!("Node {} is in neither W0 nor W1", v));
+        }
     }
 
     validate_player_witness(game, &in_w0, strat0, 0)?;
@@ -47,7 +53,9 @@ fn check_parity_condition(
                 game.get_successors(u).contains(&u)
             }
         };
-        if !is_nontrivial { continue; }
+        if !is_nontrivial {
+            continue;
+        }
 
         let max_prio = scc.iter().map(|&v| game.get_priority(v)).max().unwrap_or(0);
         if max_prio % 2 != player {
@@ -67,23 +75,31 @@ fn validate_player_witness(
     player: usize,
 ) -> Result<(), String> {
     for v in 0..game.num_nodes() {
-        if !in_region[v] { continue; }
+        if !in_region[v] {
+            continue;
+        }
 
         if game.get_owner(v) == player {
             let succ = strategy[v].ok_or_else(|| {
                 format!("Winning player {} has no strategy at node {}", player, v)
             })?;
-            
+
             if !game.get_successors(v).contains(&succ) {
                 return Err(format!("Invalid strategy edge ({}, {})", v, succ));
             }
             if !in_region[succ] {
-                return Err(format!("Strategy edge ({}, {}) leaves winning region W{}", v, succ, player));
+                return Err(format!(
+                    "Strategy edge ({}, {}) leaves winning region W{}",
+                    v, succ, player
+                ));
             }
         } else {
             for &succ in game.get_successors(v) {
                 if !in_region[succ] {
-                    return Err(format!("Opponent {} can escape region W{} via edge to {}", v, player, succ));
+                    return Err(format!(
+                        "Opponent {} can escape region W{} via edge to {}",
+                        v, player, succ
+                    ));
                 }
             }
         }

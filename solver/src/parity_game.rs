@@ -62,7 +62,7 @@ impl ParityGame {
     pub fn get_priority(&self, node: usize) -> usize {
         self.priorities[node]
     }
-    
+
     pub fn get_owner(&self, node: usize) -> usize {
         self.owners[node]
     }
@@ -152,7 +152,7 @@ impl ParityGame {
         if self.get_owner(node) == winning_player {
             match strategy[node] {
                 Some(succ) if in_region[succ] => vec![succ],
-                _ => Vec::new(), 
+                _ => Vec::new(),
             }
         } else {
             self.get_successors(node)
@@ -163,8 +163,12 @@ impl ParityGame {
         }
     }
 
-
-    pub fn tarjan_sccs_restricted(&self, in_region: &[bool], strategy: &[Option<usize>], winning_player: usize) -> Vec<Vec<usize>> {
+    pub fn tarjan_sccs_restricted(
+        &self,
+        in_region: &[bool],
+        strategy: &[Option<usize>],
+        winning_player: usize,
+    ) -> Vec<Vec<usize>> {
         let mut index = vec![None; self.nodes];
         let mut lowlink = vec![0; self.nodes];
         let mut on_stack = vec![false; self.nodes];
@@ -174,7 +178,9 @@ impl ParityGame {
         let mut sccs = Vec::new();
 
         for start in 0..self.nodes {
-            if !in_region[start] || index[start].is_some() { continue; }
+            if !in_region[start] || index[start].is_some() {
+                continue;
+            }
 
             index[start] = Some(next_index);
             lowlink[start] = next_index;
@@ -200,7 +206,12 @@ impl ParityGame {
                         on_stack[v] = true;
                         call_stack.push(TarjanFrame {
                             node: v,
-                            neighbors: self.restricted_neighbors(in_region, strategy, v, winning_player),
+                            neighbors: self.restricted_neighbors(
+                                in_region,
+                                strategy,
+                                v,
+                                winning_player,
+                            ),
                             next_neighbor: 0,
                         });
                     } else if on_stack[v] {
@@ -213,7 +224,9 @@ impl ParityGame {
                             let member = active_stack.pop().unwrap();
                             on_stack[member] = false;
                             component.push(member);
-                            if member == u { break; }
+                            if member == u {
+                                break;
+                            }
                         }
                         sccs.push(component);
                     }
@@ -227,7 +240,6 @@ impl ParityGame {
         sccs
     }
 }
-
 
 pub struct ParityGameBuilder {
     nodes: usize,
@@ -358,5 +370,3 @@ impl ParityGameBuilder {
         game
     }
 }
-
-
