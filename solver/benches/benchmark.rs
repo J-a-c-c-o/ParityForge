@@ -12,18 +12,18 @@ fn bench_solvers(c: &mut Criterion) {
     for size in sizes.iter() {
         let game = generate_random_pg(*size, 4, *size, Some(42));
 
-        group.bench_with_input(BenchmarkId::new("Zielonka", size), &game, |b, g| {
+        group.bench_with_input(BenchmarkId::new("PZLK", size), &game, |b, g| {
             b.iter(|| {
-                let _ = solve(black_box(g), Algorithm::Zielonka).unwrap();
+                let _ = solve(black_box(g), Algorithm::Pzlk).unwrap();
             })
         });
 
         group.bench_with_input(
-            BenchmarkId::new("Unoptimized Zielonka", size),
+            BenchmarkId::new("ZLK", size),
             &game,
             |b, g| {
                 b.iter(|| {
-                    let _ = solve(black_box(g), Algorithm::UnoptimizedZielonka).unwrap();
+                    let _ = solve(black_box(g), Algorithm::Zlk).unwrap();
                 })
             },
         );
