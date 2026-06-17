@@ -1,0 +1,4 @@
+Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB
+tc+_10.txt,1160,2350,ptl,OK,4271.749064,188.099
+tc+_11.txt,1518,3080,ptl,OK,16841.634110000003,538.3385
+tc+_12.txt,1944,3948,ptl,OK,84750.534763,1497.0624
