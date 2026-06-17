@@ -1,0 +1,3 @@
+Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB
+core_10.txt,63,103,spm,OK,17051.090229,1536.0195
+core_11.txt,69,113,spm,OK,111593.613761,12288.021

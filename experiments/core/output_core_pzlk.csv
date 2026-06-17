@@ -1,0 +1,6 @@
+Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB
+core_10.txt,63,103,pzlk,OK,1367.60594,0.1645298
+core_11.txt,69,113,pzlk,OK,3693.1283559999997,0.17700481
+core_12.txt,75,123,pzlk,OK,9930.075103,0.19071579
+core_13.txt,81,133,pzlk,OK,27455.584928,0.20541477
+core_14.txt,87,143,pzlk,OK,71034.177778,0.22114754

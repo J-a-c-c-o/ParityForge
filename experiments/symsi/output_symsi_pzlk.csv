@@ -1,0 +1,6 @@
+Game,Nodes,Edges,Algorithm,Status,Time_ms,Peak_Memory_MB
+symsi_10.txt,102,222,pzlk,OK,1093.6042559999999,0.24624825
+symsi_11.txt,112,244,pzlk,OK,2852.700315,0.27658844
+symsi_12.txt,122,266,pzlk,OK,8069.075863,0.30936623
+symsi_13.txt,132,288,pzlk,OK,23247.10539,0.34472275
+symsi_14.txt,142,310,pzlk,OK,61011.320766,0.38269615
