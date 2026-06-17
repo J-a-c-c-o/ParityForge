@@ -55,7 +55,7 @@ The project is organized as a Rust workspace containing three main crates:
 │       │   ├── pzlk.rs      # Parallel Zielonka
 │       │   └── zlk.rs       # Zielonka
 │       └── verifier.rs
-└── test_solvers/            # A dedicated bulk-testing and CSV generation client
+├── test_solvers/            # A dedicated bulk-testing and CSV generation client
 │   ├── Cargo.toml
 │   └── src/main.rs
 └── experiments/             # Contains csv files and ipynb notebook for visualizing and analyzing
