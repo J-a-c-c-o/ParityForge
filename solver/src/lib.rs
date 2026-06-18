@@ -32,6 +32,45 @@ impl Algorithm {
     pub fn list_algorithms() -> Vec<&'static str> {
         vec!["zlk", "pzlk", "fpi", "fpj", "tl", "ptl", "si", "spm"]
     }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            Algorithm::Pzlk => "Parallel Zielonka's recursive algorithm",
+            Algorithm::Zlk => "Zielonka's recursive algorithm",
+            Algorithm::Fpi => "Fixed-point iteration algorithm with freezing",
+            Algorithm::Fpj => "Fixed-point iteration with justifications",
+            Algorithm::Tl => "Tangle learning algorithm",
+            Algorithm::Ptl => "Parallel tangle learning algorithm",
+            Algorithm::Si => "Strategy improvement algorithm",
+            Algorithm::Spm => "Small progress measures algorithm",
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Algorithm::Pzlk => "pzlk",
+            Algorithm::Zlk => "zlk",
+            Algorithm::Fpi => "fpi",
+            Algorithm::Fpj => "fpj",
+            Algorithm::Tl => "tl",
+            Algorithm::Ptl => "ptl",
+            Algorithm::Si => "si",
+            Algorithm::Spm => "spm",
+        }
+    }
+
+    pub fn algorithms() -> Vec<Algorithm> {
+        vec![
+            Algorithm::Pzlk,
+            Algorithm::Zlk,
+            Algorithm::Fpi,
+            Algorithm::Fpj,
+            Algorithm::Tl,
+            Algorithm::Ptl,
+            Algorithm::Si,
+            Algorithm::Spm,
+        ]
+    }
 }
 
 impl std::str::FromStr for Algorithm {

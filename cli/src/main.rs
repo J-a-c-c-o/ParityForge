@@ -92,11 +92,11 @@ fn main() {
             println!("Solution verified successfully.");
         }
         Commands::ListAlgorithms => {
-            solver::Algorithm::list_algorithms()
-                .iter()
-                .for_each(|algo| {
-                    println!("{}", algo);
-                });
+            let algos = Algorithm::algorithms();
+            println!("Available algorithms:");
+            for algo in algos {
+                println!("- {}: {}", algo.name(), algo.description());
+            }
         }
     }
 }

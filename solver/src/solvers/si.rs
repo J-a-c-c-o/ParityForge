@@ -15,7 +15,7 @@ pub fn run_si(
     Ok(solve(game))
 }
 
-pub fn solve(
+fn solve(
     game: &ParityGame,
 ) -> (
     Vec<usize>,
