@@ -1,4 +1,4 @@
-# Parity Games Solver
+# ParityForge
 
 ## About
 
